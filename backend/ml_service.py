@@ -3,6 +3,7 @@ import logging
 from typing import Dict, List, Tuple
 import random
 import numpy as np
+import os
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -65,7 +66,13 @@ class SentimentAnalyzer:
             'love': ['love', 'loved', 'adore', 'cherish', 'treasure', 'affection', 'romance'],
             'neutral': ['okay', 'fine', 'normal', 'regular', 'usual', 'standard', 'average']
         }
-        self._load_models()
+
+        # Defer heavy model loading unless enabled
+        self.models_enabled = os.environ.get('EUNOIA_ENABLE_MODELS', '0') in ('1', 'true', 'True')
+        if self.models_enabled:
+            self._load_models()
+        else:
+            logger.info("Model loading disabled (EUNOIA_ENABLE_MODELS not set). Using rule-based fallback.")
     
     def _load_models(self):
         """Load pre-trained models from Hugging Face including GoEmotions"""

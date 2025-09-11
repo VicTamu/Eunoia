@@ -47,16 +47,16 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ onEntrySaved }) => {
 
   const getPlaceholderText = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Good morning! How are you feeling today? What are your plans?";
-    if (hour < 18) return "Good afternoon! How has your day been so far?";
-    return "Good evening! How was your day? What are you grateful for?";
+    if (hour < 12) return 'Good morning! How are you feeling today? What are your plans?';
+    if (hour < 18) return 'Good afternoon! How has your day been so far?';
+    return 'Good evening! How was your day? What are you grateful for?';
   };
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
       <div className="flex items-center gap-2 mb-4">
         <Calendar className="h-5 w-5 text-blue-600" />
-        <h2 className="text-xl font-semibold text-gray-800">Today's Journal Entry</h2>
+        <h2 className="text-xl font-semibold text-gray-800">Today&apos;s Journal Entry</h2>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -88,21 +88,21 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ onEntrySaved }) => {
             disabled={isLoading}
           />
           <div className="flex justify-between items-center mt-2">
+            <span className="text-sm text-gray-500">{content.length} characters</span>
             <span className="text-sm text-gray-500">
-              {content.length} characters
-            </span>
-            <span className="text-sm text-gray-500">
-              {content.split(/\s+/).filter(word => word.length > 0).length} words
+              {content.split(/\s+/).filter((word) => word.length > 0).length} words
             </span>
           </div>
         </div>
 
         {message && (
-          <div className={`p-3 rounded-md ${
-            message.includes('Error') || message.includes('Please')
-              ? 'bg-red-50 text-red-700 border border-red-200'
-              : 'bg-green-50 text-green-700 border border-green-200'
-          }`}>
+          <div
+            className={`p-3 rounded-md ${
+              message.includes('Error') || message.includes('Please')
+                ? 'bg-red-50 text-red-700 border border-red-200'
+                : 'bg-green-50 text-green-700 border border-green-200'
+            }`}
+          >
             {message}
           </div>
         )}
@@ -128,8 +128,9 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ onEntrySaved }) => {
 
       <div className="mt-4 p-4 bg-blue-50 rounded-md">
         <p className="text-sm text-blue-800">
-          <strong>Privacy Note:</strong> Your journal entries are analyzed by AI to provide insights about your mood and stress levels. 
-          This is a prototype - please don't share sensitive personal information.
+          <strong>Privacy Note:</strong> Your journal entries are analyzed by AI to provide insights
+          about your mood and stress levels. This is a prototype - please don&apos;t share sensitive
+          personal information.
         </p>
       </div>
     </div>

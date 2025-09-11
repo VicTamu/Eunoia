@@ -27,7 +27,7 @@ export const journalApi = {
   },
 
   // Get paginated journal entries (returns only the entries array)
-  getEntries: async (page: number = 1, perPage: number = 10): Promise<JournalEntry[]> => {
+  getEntries: async (page = 1, perPage = 10): Promise<JournalEntry[]> => {
     const { data } = await api.get(routes.entries(page, perPage));
     return (data?.entries as JournalEntry[]) ?? [];
   },
@@ -39,7 +39,7 @@ export const journalApi = {
   },
 
   // Get sentiment trends
-  getSentimentTrends: async (days: number = 30): Promise<SentimentTrendsResponse> => {
+  getSentimentTrends: async (days = 30): Promise<SentimentTrendsResponse> => {
     const { data } = await api.get(routes.sentimentTrends(days));
     return data as SentimentTrendsResponse;
   },

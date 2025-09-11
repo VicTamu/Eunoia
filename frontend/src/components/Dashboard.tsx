@@ -242,7 +242,9 @@ const Dashboard: React.FC = () => {
         
         <div className="mt-4 p-3 bg-blue-50 rounded-md">
           <p className="text-sm text-blue-800">
-            <strong>Enhanced Analysis:</strong> Our AI now uses Google's GoEmotions dataset to detect 27 different emotion categories, providing more nuanced and accurate emotional insights for your journal entries.
+            <strong>Enhanced Analysis:</strong> Our AI now uses Google&apos;s GoEmotions dataset to detect 27
+            different emotion categories, providing more nuanced and accurate emotional insights for your
+            journal entries.
           </p>
         </div>
       </div>
@@ -277,7 +279,10 @@ const Dashboard: React.FC = () => {
         <div className="flex items-start gap-2">
           <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
           <div className="text-sm text-yellow-800">
-            <strong>AI Analysis Disclaimer:</strong> The insights and mood analysis provided by this app are based on AI analysis of your text and are not a substitute for professional medical or mental health advice. If you're experiencing significant emotional distress, please consider speaking with a qualified healthcare provider.
+            <strong>AI Analysis Disclaimer:</strong> The insights and mood analysis provided by this
+            app are based on AI analysis of your text and are not a substitute for professional medical
+            or mental health advice. If you&apos;re experiencing significant emotional distress, please
+            consider speaking with a qualified healthcare provider.
           </div>
         </div>
       </div>
