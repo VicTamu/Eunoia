@@ -10,36 +10,44 @@ const api = axios.create({
   },
 });
 
+// Route helpers (keeps string construction in one place)
+const routes = {
+  entries: (page: number, perPage: number) => `/entries/?page=${page}&per_page=${perPage}`,
+  entryById: (id: number) => `/entries/${id}`,
+  createEntry: () => '/entries/',
+  sentimentTrends: (days: number) => `/analytics/sentiment-trends?days=${days}`,
+  insights: () => '/analytics/insights',
+};
+
 export const journalApi = {
   // Create a new journal entry
   createEntry: async (entry: JournalEntryCreate): Promise<JournalEntry> => {
-    const response = await api.post('/entries/', entry);
-    return response.data;
+    const { data } = await api.post(routes.createEntry(), entry);
+    return data as JournalEntry;
   },
 
-  // Get all journal entries
+  // Get paginated journal entries (returns only the entries array)
   getEntries: async (page: number = 1, perPage: number = 10): Promise<JournalEntry[]> => {
-    const response = await api.get(`/entries/?page=${page}&per_page=${perPage}`);
-    // Backend returns a paginated object; we only need the entries array here
-    return response.data.entries ?? [];
+    const { data } = await api.get(routes.entries(page, perPage));
+    return (data?.entries as JournalEntry[]) ?? [];
   },
 
   // Get a specific journal entry
   getEntry: async (id: number): Promise<JournalEntry> => {
-    const response = await api.get(`/entries/${id}`);
-    return response.data;
+    const { data } = await api.get(routes.entryById(id));
+    return data as JournalEntry;
   },
 
   // Get sentiment trends
   getSentimentTrends: async (days: number = 30): Promise<SentimentTrendsResponse> => {
-    const response = await api.get(`/analytics/sentiment-trends?days=${days}`);
-    return response.data;
+    const { data } = await api.get(routes.sentimentTrends(days));
+    return data as SentimentTrendsResponse;
   },
 
   // Get insights and suggestions
   getInsights: async (): Promise<Insight> => {
-    const response = await api.get('/analytics/insights');
-    return response.data;
+    const { data } = await api.get(routes.insights());
+    return data as Insight;
   },
 };
 
