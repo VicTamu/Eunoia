@@ -1,0 +1,756 @@
+from fastapi import FastAPI, HTTPException, Depends, Query, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, Text, and_, or_, desc, asc
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
+from pydantic import BaseModel, Field, validator
+from datetime import datetime, date, timedelta
+from typing import List, Optional, Dict, Any
+import os
+import json
+import re
+from ml_service import analyze_journal_entry
+
+# Database setup
+SQLALCHEMY_DATABASE_URL = "sqlite:///./eunoia_journal.db"
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+# Database Models
+class JournalEntry(Base):
+    __tablename__ = "journal_entries"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    date = Column(DateTime, default=datetime.utcnow, index=True)
+    content = Column(Text, nullable=False)
+    sentiment_score = Column(Float, nullable=True, index=True)
+    emotion = Column(String(50), nullable=True, index=True)
+    emotion_confidence = Column(Float, nullable=True)
+    emotions_detected = Column(Text, nullable=True)  # JSON string for multiple emotions
+    emotion_group = Column(String(20), nullable=True, index=True)
+    stress_level = Column(Float, nullable=True, index=True)
+    word_count = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+# Pydantic models
+class JournalEntryCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=10000, description="Journal entry content")
+    date: Optional[datetime] = Field(None, description="Entry date (defaults to current time)")
+    
+    @validator('content')
+    def validate_content(cls, v):
+        if not v or not v.strip():
+            raise ValueError('Content cannot be empty')
+        # Remove excessive whitespace
+        return re.sub(r'\s+', ' ', v.strip())
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "content": "Today was a great day! I finished my project and felt really accomplished.",
+                "date": "2024-01-15T10:30:00"
+            }
+        }
+
+class JournalEntryUpdate(BaseModel):
+    content: Optional[str] = Field(None, min_length=1, max_length=10000, description="Updated journal entry content")
+    date: Optional[datetime] = Field(None, description="Updated entry date")
+    
+    @validator('content')
+    def validate_content(cls, v):
+        if v is not None:
+            if not v or not v.strip():
+                raise ValueError('Content cannot be empty')
+            # Remove excessive whitespace
+            return re.sub(r'\s+', ' ', v.strip())
+        return v
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "content": "Updated my journal entry with more details about my day."
+            }
+        }
+
+class JournalEntryResponse(BaseModel):
+    id: int
+    date: datetime
+    content: str
+    sentiment_score: Optional[float]
+    emotion: Optional[str]
+    emotion_confidence: Optional[float]
+    emotions_detected: Optional[str]  # JSON string
+    emotion_group: Optional[str]
+    stress_level: Optional[float]
+    word_count: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+        json_schema_extra = {
+            "example": {
+                "id": 1,
+                "date": "2024-01-15T10:30:00",
+                "content": "Today was a great day! I finished my project and felt really accomplished.",
+                "sentiment_score": 0.8,
+                "emotion": "joy",
+                "emotion_confidence": 0.92,
+                "emotions_detected": "[['joy', 0.92], ['excitement', 0.15]]",
+                "emotion_group": "positive",
+                "stress_level": 0.1,
+                "word_count": 18,
+                "created_at": "2024-01-15T10:30:00",
+                "updated_at": "2024-01-15T10:30:00"
+            }
+        }
+
+class SentimentAnalysis(BaseModel):
+    sentiment_score: float
+    emotion: str
+    stress_level: float
+
+class JournalEntrySearch(BaseModel):
+    query: Optional[str] = Field(None, description="Search query for content")
+    emotion: Optional[str] = Field(None, description="Filter by emotion")
+    emotion_group: Optional[str] = Field(None, description="Filter by emotion group (positive/negative/neutral)")
+    min_sentiment: Optional[float] = Field(None, ge=-1.0, le=1.0, description="Minimum sentiment score")
+    max_sentiment: Optional[float] = Field(None, ge=-1.0, le=1.0, description="Maximum sentiment score")
+    min_stress: Optional[float] = Field(None, ge=0.0, le=1.0, description="Minimum stress level")
+    max_stress: Optional[float] = Field(None, ge=0.0, le=1.0, description="Maximum stress level")
+    start_date: Optional[datetime] = Field(None, description="Start date filter")
+    end_date: Optional[datetime] = Field(None, description="End date filter")
+    min_word_count: Optional[int] = Field(None, ge=0, description="Minimum word count")
+    max_word_count: Optional[int] = Field(None, ge=0, description="Maximum word count")
+
+class PaginatedResponse(BaseModel):
+    entries: List[JournalEntryResponse]
+    total: int
+    page: int
+    per_page: int
+    total_pages: int
+    has_next: bool
+    has_prev: bool
+
+# FastAPI app
+app = FastAPI(title="Eunoia Journal API", version="1.0.0")
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # React dev server
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Database dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# Create tables
+Base.metadata.create_all(bind=engine)
+
+# Routes
+@app.get("/")
+async def root():
+    return {"message": "Eunoia Journal API is running!"}
+
+@app.post("/entries/", response_model=JournalEntryResponse, status_code=status.HTTP_201_CREATED)
+async def create_entry(entry: JournalEntryCreate, db: Session = Depends(get_db)):
+    """
+    Create a new journal entry with AI analysis.
+    
+    - **content**: The journal entry text (required)
+    - **date**: Optional date for the entry (defaults to current time)
+    
+    Returns the created entry with sentiment analysis, emotion detection, and stress level.
+    """
+    try:
+        # Analyze the journal entry using ML models
+        analysis = analyze_journal_entry(entry.content)
+        
+        # Calculate word count
+        word_count = len(entry.content.split())
+        
+        # Prepare emotions_detected as JSON string
+        emotions_detected = json.dumps(analysis.get("emotions_detected", []))
+        
+        db_entry = JournalEntry(
+            content=entry.content,
+            date=entry.date or datetime.utcnow(),
+            sentiment_score=analysis["sentiment_score"],
+            emotion=analysis["emotion"],
+            emotion_confidence=analysis.get("emotion_confidence"),
+            emotions_detected=emotions_detected,
+            emotion_group=analysis.get("emotion_group"),
+            stress_level=analysis["stress_level"],
+            word_count=word_count
+        )
+        
+        db.add(db_entry)
+        db.commit()
+        db.refresh(db_entry)
+        
+        return db_entry
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create journal entry: {str(e)}"
+        )
+
+@app.get("/entries/", response_model=PaginatedResponse)
+async def get_entries(
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(10, ge=1, le=100, description="Entries per page"),
+    search: Optional[str] = Query(None, description="Search in content"),
+    emotion: Optional[str] = Query(None, description="Filter by emotion"),
+    emotion_group: Optional[str] = Query(None, description="Filter by emotion group"),
+    min_sentiment: Optional[float] = Query(None, ge=-1.0, le=1.0, description="Minimum sentiment score"),
+    max_sentiment: Optional[float] = Query(None, ge=-1.0, le=1.0, description="Maximum sentiment score"),
+    min_stress: Optional[float] = Query(None, ge=0.0, le=1.0, description="Minimum stress level"),
+    max_stress: Optional[float] = Query(None, ge=0.0, le=1.0, description="Maximum stress level"),
+    start_date: Optional[datetime] = Query(None, description="Start date filter"),
+    end_date: Optional[datetime] = Query(None, description="End date filter"),
+    sort_by: str = Query("created_at", description="Sort field (created_at, date, sentiment_score, stress_level)"),
+    sort_order: str = Query("desc", description="Sort order (asc, desc)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get journal entries with pagination, search, and filtering.
+    
+    - **page**: Page number (default: 1)
+    - **per_page**: Entries per page (default: 10, max: 100)
+    - **search**: Search query for content
+    - **emotion**: Filter by specific emotion
+    - **emotion_group**: Filter by emotion group (positive/negative/neutral)
+    - **min_sentiment/max_sentiment**: Sentiment score range (-1.0 to 1.0)
+    - **min_stress/max_stress**: Stress level range (0.0 to 1.0)
+    - **start_date/end_date**: Date range filter
+    - **sort_by**: Sort field (created_at, date, sentiment_score, stress_level)
+    - **sort_order**: Sort order (asc, desc)
+    """
+    try:
+        # Build query
+        query = db.query(JournalEntry)
+        
+        # Apply filters
+        if search:
+            query = query.filter(JournalEntry.content.contains(search))
+        
+        if emotion:
+            query = query.filter(JournalEntry.emotion == emotion)
+        
+        if emotion_group:
+            query = query.filter(JournalEntry.emotion_group == emotion_group)
+        
+        if min_sentiment is not None:
+            query = query.filter(JournalEntry.sentiment_score >= min_sentiment)
+        
+        if max_sentiment is not None:
+            query = query.filter(JournalEntry.sentiment_score <= max_sentiment)
+        
+        if min_stress is not None:
+            query = query.filter(JournalEntry.stress_level >= min_stress)
+        
+        if max_stress is not None:
+            query = query.filter(JournalEntry.stress_level <= max_stress)
+        
+        if start_date:
+            query = query.filter(JournalEntry.date >= start_date)
+        
+        if end_date:
+            query = query.filter(JournalEntry.date <= end_date)
+        
+        # Apply sorting
+        sort_field = getattr(JournalEntry, sort_by, JournalEntry.created_at)
+        if sort_order.lower() == "asc":
+            query = query.order_by(asc(sort_field))
+        else:
+            query = query.order_by(desc(sort_field))
+        
+        # Get total count
+        total = query.count()
+        
+        # Apply pagination
+        offset = (page - 1) * per_page
+        entries = query.offset(offset).limit(per_page).all()
+        
+        # Calculate pagination info
+        total_pages = (total + per_page - 1) // per_page
+        has_next = page < total_pages
+        has_prev = page > 1
+        
+        return PaginatedResponse(
+            entries=entries,
+            total=total,
+            page=page,
+            per_page=per_page,
+            total_pages=total_pages,
+            has_next=has_next,
+            has_prev=has_prev
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve entries: {str(e)}"
+        )
+
+@app.get("/entries/{entry_id}", response_model=JournalEntryResponse)
+async def get_entry(entry_id: int, db: Session = Depends(get_db)):
+    """
+    Get a specific journal entry by ID.
+    """
+    entry = db.query(JournalEntry).filter(JournalEntry.id == entry_id).first()
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    return entry
+
+@app.put("/entries/{entry_id}", response_model=JournalEntryResponse)
+async def update_entry(
+    entry_id: int, 
+    entry_update: JournalEntryUpdate, 
+    db: Session = Depends(get_db)
+):
+    """
+    Update a journal entry.
+    
+    - **entry_id**: ID of the entry to update
+    - **content**: Updated content (optional)
+    - **date**: Updated date (optional)
+    
+    If content is updated, the entry will be re-analyzed for sentiment and emotions.
+    """
+    try:
+        # Get existing entry
+        db_entry = db.query(JournalEntry).filter(JournalEntry.id == entry_id).first()
+        if db_entry is None:
+            raise HTTPException(status_code=404, detail="Entry not found")
+        
+        # Update fields if provided
+        update_data = entry_update.dict(exclude_unset=True)
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No fields to update")
+        
+        # If content is being updated, re-analyze
+        if "content" in update_data:
+            analysis = analyze_journal_entry(update_data["content"])
+            word_count = len(update_data["content"].split())
+            emotions_detected = json.dumps(analysis.get("emotions_detected", []))
+            
+            # Update analysis fields
+            db_entry.sentiment_score = analysis["sentiment_score"]
+            db_entry.emotion = analysis["emotion"]
+            db_entry.emotion_confidence = analysis.get("emotion_confidence")
+            db_entry.emotions_detected = emotions_detected
+            db_entry.emotion_group = analysis.get("emotion_group")
+            db_entry.stress_level = analysis["stress_level"]
+            db_entry.word_count = word_count
+        
+        # Update basic fields
+        for field, value in update_data.items():
+            setattr(db_entry, field, value)
+        
+        db_entry.updated_at = datetime.utcnow()
+        
+        db.commit()
+        db.refresh(db_entry)
+        
+        return db_entry
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update entry: {str(e)}"
+        )
+
+@app.delete("/entries/{entry_id}")
+async def delete_entry(entry_id: int, db: Session = Depends(get_db)):
+    """
+    Delete a journal entry.
+    
+    - **entry_id**: ID of the entry to delete
+    """
+    try:
+        db_entry = db.query(JournalEntry).filter(JournalEntry.id == entry_id).first()
+        if db_entry is None:
+            raise HTTPException(status_code=404, detail="Entry not found")
+        
+        db.delete(db_entry)
+        db.commit()
+        
+        return {"message": "Entry deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete entry: {str(e)}"
+        )
+
+@app.get("/analytics/sentiment-trends")
+async def get_sentiment_trends(
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get sentiment trends for the dashboard.
+    
+    - **days**: Number of days to analyze (1-365, default: 30)
+    
+    Returns daily sentiment, stress, and emotion trends with statistics.
+    """
+    try:
+        # Get entries from the last N days
+        start_date = datetime.utcnow() - timedelta(days=days)
+        entries = db.query(JournalEntry).filter(JournalEntry.date >= start_date).all()
+        
+        if not entries:
+            return {
+                "trends": [],
+                "total_entries": 0,
+                "days_analyzed": days,
+                "summary": {
+                    "avg_sentiment": 0.0,
+                    "avg_stress": 0.0,
+                    "most_common_emotion": "neutral",
+                    "total_entries": 0
+                }
+            }
+        
+        # Group by date and calculate averages
+        daily_data = {}
+        for entry in entries:
+            date_key = entry.date.date().isoformat()
+            if date_key not in daily_data:
+                daily_data[date_key] = {
+                    "date": date_key,
+                    "sentiment_scores": [],
+                    "stress_levels": [],
+                    "emotions": [],
+                    "emotion_groups": [],
+                    "word_counts": [],
+                    "entry_count": 0
+                }
+            
+            daily_data[date_key]["sentiment_scores"].append(entry.sentiment_score or 0)
+            daily_data[date_key]["stress_levels"].append(entry.stress_level or 0)
+            daily_data[date_key]["emotions"].append(entry.emotion or "neutral")
+            daily_data[date_key]["emotion_groups"].append(entry.emotion_group or "neutral")
+            daily_data[date_key]["word_counts"].append(entry.word_count or 0)
+            daily_data[date_key]["entry_count"] += 1
+        
+        # Calculate daily averages and statistics
+        trends = []
+        all_sentiments = []
+        all_stress = []
+        all_emotions = []
+        
+        for date_key, data in daily_data.items():
+            avg_sentiment = sum(data["sentiment_scores"]) / len(data["sentiment_scores"])
+            avg_stress = sum(data["stress_levels"]) / len(data["stress_levels"])
+            avg_word_count = sum(data["word_counts"]) / len(data["word_counts"]) if data["word_counts"] else 0
+            
+            # Find most common emotion and emotion group
+            most_common_emotion = max(set(data["emotions"]), key=data["emotions"].count) if data["emotions"] else "neutral"
+            most_common_emotion_group = max(set(data["emotion_groups"]), key=data["emotion_groups"].count) if data["emotion_groups"] else "neutral"
+            
+            trends.append({
+                "date": date_key,
+                "avg_sentiment": round(avg_sentiment, 3),
+                "avg_stress": round(avg_stress, 3),
+                "avg_word_count": round(avg_word_count, 1),
+                "most_common_emotion": most_common_emotion,
+                "most_common_emotion_group": most_common_emotion_group,
+                "entry_count": data["entry_count"]
+            })
+            
+            # Collect for overall statistics
+            all_sentiments.extend(data["sentiment_scores"])
+            all_stress.extend(data["stress_levels"])
+            all_emotions.extend(data["emotions"])
+        
+        # Sort by date
+        trends.sort(key=lambda x: x["date"])
+        
+        # Calculate overall summary
+        overall_avg_sentiment = sum(all_sentiments) / len(all_sentiments) if all_sentiments else 0
+        overall_avg_stress = sum(all_stress) / len(all_stress) if all_stress else 0
+        overall_most_common_emotion = max(set(all_emotions), key=all_emotions.count) if all_emotions else "neutral"
+        
+        return {
+            "trends": trends,
+            "total_entries": len(entries),
+            "days_analyzed": days,
+            "summary": {
+                "avg_sentiment": round(overall_avg_sentiment, 3),
+                "avg_stress": round(overall_avg_stress, 3),
+                "most_common_emotion": overall_most_common_emotion,
+                "total_entries": len(entries)
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve sentiment trends: {str(e)}"
+        )
+
+@app.get("/analytics/insights")
+async def get_insights(
+    days: int = Query(7, ge=1, le=30, description="Number of days to analyze for insights"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get AI-generated insights and suggestions based on recent journal entries.
+    
+    - **days**: Number of days to analyze (1-30, default: 7)
+    
+    Returns personalized insights, suggestions, and emotional patterns.
+    """
+    try:
+        # Get entries from the specified number of days
+        start_date = datetime.utcnow() - timedelta(days=days)
+        entries = db.query(JournalEntry).filter(JournalEntry.date >= start_date).all()
+        
+        if not entries:
+            return {
+                "insights": ["Start writing journal entries to get personalized insights!"],
+                "suggestions": ["Try writing about your day, feelings, or thoughts."],
+                "data_available": False,
+                "patterns": {},
+                "recommendations": []
+            }
+        
+        # Analyze patterns
+        sentiments = [entry.sentiment_score or 0 for entry in entries]
+        stress_levels = [entry.stress_level or 0 for entry in entries]
+        emotions = [entry.emotion or "neutral" for entry in entries]
+        emotion_groups = [entry.emotion_group or "neutral" for entry in entries]
+        word_counts = [entry.word_count or 0 for entry in entries]
+        
+        avg_sentiment = sum(sentiments) / len(sentiments)
+        avg_stress = sum(stress_levels) / len(stress_levels)
+        avg_word_count = sum(word_counts) / len(word_counts) if word_counts else 0
+        
+        # Find most common emotions and groups
+        emotion_counts = {}
+        emotion_group_counts = {}
+        for emotion in emotions:
+            emotion_counts[emotion] = emotion_counts.get(emotion, 0) + 1
+        for group in emotion_groups:
+            emotion_group_counts[group] = emotion_group_counts.get(group, 0) + 1
+        
+        most_common_emotion = max(emotion_counts.items(), key=lambda x: x[1])[0] if emotion_counts else "neutral"
+        most_common_group = max(emotion_group_counts.items(), key=lambda x: x[1])[0] if emotion_group_counts else "neutral"
+        
+        insights = []
+        suggestions = []
+        patterns = {}
+        recommendations = []
+        
+        # Sentiment-based insights
+        if avg_sentiment > 0.3:
+            insights.append("Your recent entries show a positive outlook! 🌟")
+            patterns["sentiment_trend"] = "positive"
+        elif avg_sentiment < -0.3:
+            insights.append("Your recent entries suggest you might be going through a challenging time. 💙")
+            suggestions.append("Consider talking to a trusted friend or counselor about your feelings.")
+            patterns["sentiment_trend"] = "negative"
+        else:
+            insights.append("Your mood has been relatively stable recently. 📊")
+            patterns["sentiment_trend"] = "neutral"
+        
+        # Stress-based insights
+        if avg_stress > 0.7:
+            insights.append("Your entries indicate high stress levels lately. 😰")
+            suggestions.extend([
+                "Try the 4-7-8 breathing technique: inhale for 4, hold for 7, exhale for 8.",
+                "Consider taking short breaks every hour during work or study.",
+                "Practice mindfulness or meditation for 5-10 minutes daily."
+            ])
+            patterns["stress_level"] = "high"
+            recommendations.append("Consider stress management techniques or professional support")
+        elif avg_stress > 0.4:
+            insights.append("You're experiencing moderate stress levels. ⚖️")
+            suggestions.append("Try some light exercise or a short walk to help manage stress.")
+            patterns["stress_level"] = "moderate"
+        else:
+            insights.append("Your stress levels appear manageable. 😌")
+            patterns["stress_level"] = "low"
+        
+        # Emotion-based insights
+        if most_common_group == "positive":
+            insights.append(f"You've been feeling {most_common_emotion} frequently - that's wonderful! 😊")
+            patterns["emotion_dominance"] = "positive"
+        elif most_common_group == "negative":
+            insights.append(f"You've been experiencing {most_common_emotion} often. It's okay to feel this way. 💙")
+            suggestions.append("Consider activities that bring you joy or relaxation.")
+            patterns["emotion_dominance"] = "negative"
+        else:
+            insights.append("Your emotional state has been relatively balanced. ⚖️")
+            patterns["emotion_dominance"] = "neutral"
+        
+        # Writing pattern insights
+        if avg_word_count > 100:
+            insights.append("You write detailed entries - this shows great self-reflection! 📝")
+            patterns["writing_style"] = "detailed"
+        elif avg_word_count > 50:
+            insights.append("You maintain a good balance in your journaling. 👍")
+            patterns["writing_style"] = "moderate"
+        else:
+            suggestions.append("Try expanding on your thoughts - more detail can help with self-reflection.")
+            patterns["writing_style"] = "brief"
+        
+        # Entry frequency insights
+        if len(entries) >= days * 0.8:  # 80% of days
+            insights.append(f"Excellent journaling consistency! You've written {len(entries)} entries in {days} days. 📝")
+            patterns["consistency"] = "excellent"
+        elif len(entries) >= days * 0.5:  # 50% of days
+            insights.append("Good journaling routine! Keep up the momentum. 💪")
+            patterns["consistency"] = "good"
+        elif len(entries) >= days * 0.2:  # 20% of days
+            insights.append("You're building a journaling habit. Every entry counts! 🌱")
+            patterns["consistency"] = "building"
+            suggestions.append("Try setting a daily reminder to write in your journal.")
+        else:
+            suggestions.append("Try to write in your journal more regularly, even if it's just a few sentences.")
+            patterns["consistency"] = "irregular"
+        
+        # Generate personalized recommendations
+        if patterns.get("stress_level") == "high" and patterns.get("sentiment_trend") == "negative":
+            recommendations.append("Consider professional mental health support")
+        if patterns.get("consistency") == "irregular":
+            recommendations.append("Set up a daily journaling routine")
+        if patterns.get("emotion_dominance") == "negative":
+            recommendations.append("Engage in activities that promote positive emotions")
+        
+        return {
+            "insights": insights,
+            "suggestions": suggestions,
+            "data_available": True,
+            "patterns": patterns,
+            "recommendations": recommendations,
+            "statistics": {
+                "avg_sentiment": round(avg_sentiment, 3),
+                "avg_stress": round(avg_stress, 3),
+                "avg_word_count": round(avg_word_count, 1),
+                "most_common_emotion": most_common_emotion,
+                "most_common_emotion_group": most_common_group,
+                "entry_count": len(entries),
+                "days_analyzed": days
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate insights: {str(e)}"
+        )
+
+@app.get("/analytics/stats")
+async def get_stats(db: Session = Depends(get_db)):
+    """
+    Get overall statistics about journal entries.
+    
+    Returns comprehensive statistics including total entries, date ranges, and emotion distributions.
+    """
+    try:
+        # Get all entries
+        all_entries = db.query(JournalEntry).all()
+        
+        if not all_entries:
+            return {
+                "total_entries": 0,
+                "date_range": None,
+                "emotion_distribution": {},
+                "sentiment_stats": {},
+                "stress_stats": {},
+                "writing_stats": {}
+            }
+        
+        # Calculate basic stats
+        total_entries = len(all_entries)
+        dates = [entry.date for entry in all_entries]
+        min_date = min(dates)
+        max_date = max(dates)
+        
+        # Emotion distribution
+        emotion_counts = {}
+        emotion_group_counts = {}
+        for entry in all_entries:
+            emotion = entry.emotion or "neutral"
+            emotion_group = entry.emotion_group or "neutral"
+            emotion_counts[emotion] = emotion_counts.get(emotion, 0) + 1
+            emotion_group_counts[emotion_group] = emotion_group_counts.get(emotion_group, 0) + 1
+        
+        # Sentiment and stress stats
+        sentiments = [entry.sentiment_score for entry in all_entries if entry.sentiment_score is not None]
+        stress_levels = [entry.stress_level for entry in all_entries if entry.stress_level is not None]
+        word_counts = [entry.word_count for entry in all_entries if entry.word_count is not None]
+        
+        return {
+            "total_entries": total_entries,
+            "date_range": {
+                "first_entry": min_date.isoformat(),
+                "last_entry": max_date.isoformat(),
+                "span_days": (max_date - min_date).days + 1
+            },
+            "emotion_distribution": emotion_counts,
+            "emotion_group_distribution": emotion_group_counts,
+            "sentiment_stats": {
+                "avg": round(sum(sentiments) / len(sentiments), 3) if sentiments else 0,
+                "min": round(min(sentiments), 3) if sentiments else 0,
+                "max": round(max(sentiments), 3) if sentiments else 0,
+                "count": len(sentiments)
+            },
+            "stress_stats": {
+                "avg": round(sum(stress_levels) / len(stress_levels), 3) if stress_levels else 0,
+                "min": round(min(stress_levels), 3) if stress_levels else 0,
+                "max": round(max(stress_levels), 3) if stress_levels else 0,
+                "count": len(stress_levels)
+            },
+            "writing_stats": {
+                "avg_word_count": round(sum(word_counts) / len(word_counts), 1) if word_counts else 0,
+                "min_word_count": min(word_counts) if word_counts else 0,
+                "max_word_count": max(word_counts) if word_counts else 0,
+                "total_words": sum(word_counts) if word_counts else 0
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve statistics: {str(e)}"
+        )
+
+@app.get("/health")
+async def health_check():
+    """
+    Health check endpoint for monitoring.
+    """
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": "1.0.0"
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
