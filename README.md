@@ -119,7 +119,7 @@ This project is for educational purposes. Please ensure you comply with all appl
 
 ## 🤝 Contributing
 
-This is a semester project. Contributions and suggestions are welcome!
+This is a semester project that is updated constantly. Contributions and suggestions are welcome!
 
 ---
 
