@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Palette, Bell, Shield, Database, Moon, Sun } from 'lucide-react';
+import { X, Palette, Bell, Eye, Shield, Database, Moon, Sun, Zap } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface PreferencesModalProps {

@@ -173,7 +173,7 @@ export class ErrorHandler {
   /**
    * Get user-friendly error message
    */
-  private getUserFriendlyMessage(code: ErrorCode, _message: string): string {
+  private getUserFriendlyMessage(code: ErrorCode, message: string): string {
     const userMessages: Record<ErrorCode, string> = {
       [ErrorCode.NETWORK_ERROR]:
         'Unable to connect to the server. Please check your internet connection.',

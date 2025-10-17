@@ -214,14 +214,8 @@ class SupabaseAuthService:
         
         return user_info
 
-# Global auth service instance (lazy initialization)
-_auth_service = None
-
-def get_auth_service():
-    global _auth_service
-    if _auth_service is None:
-        _auth_service = SupabaseAuthService()
-    return _auth_service
+# Global auth service instance
+auth_service = SupabaseAuthService()
 
 def get_current_user(token: str) -> Optional[Dict[str, Any]]:
     """
@@ -233,7 +227,7 @@ def get_current_user(token: str) -> Optional[Dict[str, Any]]:
     Returns:
         Optional[Dict]: User information if authenticated
     """
-    return get_auth_service().get_user_from_token(token)
+    return auth_service.get_user_from_token(token)
 
 def require_auth(token: str) -> Dict[str, Any]:
     """
@@ -248,4 +242,4 @@ def require_auth(token: str) -> Dict[str, Any]:
     Raises:
         HTTPException: If authentication fails
     """
-    return get_auth_service().require_auth(token)
+    return auth_service.require_auth(token)

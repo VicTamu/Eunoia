@@ -25,7 +25,7 @@
   },
   "scripts": {
     "start": "set DISABLE_ESLINT_PLUGIN=true && react-scripts start",
-    "build": "node build-ci.js",
+    "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",

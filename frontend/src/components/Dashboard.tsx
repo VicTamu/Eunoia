@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart,
   Bar,
@@ -20,18 +20,19 @@ const Dashboard: React.FC = () => {
   const [trends, setTrends] = useState<SentimentTrend[]>([]);
   const [insights, setInsights] = useState<Insight | null>(null);
   const { user, session, loading } = useAuth();
-  const {
-    error,
-    isLoading,
-    handleAsync,
-    retry,
-    lastRetryFn: _lastRetryFn,
-  } = useDataErrorHandler({
+  const { error, isLoading, handleAsync, retry, lastRetryFn } = useDataErrorHandler({
     component: 'Dashboard',
   });
 
-  const loadDashboardData = useCallback(async () => {
-    const _result = await handleAsync(
+  useEffect(() => {
+    // Only load data when user is authenticated and session is available
+    if (user && session && !loading) {
+      loadDashboardData();
+    }
+  }, [user, session, loading]);
+
+  const loadDashboardData = async () => {
+    const result = await handleAsync(
       async () => {
         const [trendsData, insightsData] = await Promise.all([
           journalApi.getSentimentTrends(14), // Last 14 days
@@ -46,14 +47,7 @@ const Dashboard: React.FC = () => {
         action: 'load_dashboard_data',
       },
     );
-  }, [handleAsync]);
-
-  useEffect(() => {
-    // Only load data when user is authenticated and session is available
-    if (user && session && !loading) {
-      loadDashboardData();
-    }
-  }, [user, session, loading, loadDashboardData]);
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -62,13 +56,13 @@ const Dashboard: React.FC = () => {
     });
   };
 
-  const _getSentimentColor = (score: number) => {
+  const getSentimentColor = (score: number) => {
     if (score > 7) return '#10B981'; // Green
     if (score < 3) return '#EF4444'; // Red
     return '#6B7280'; // Gray
   };
 
-  const _getStressColor = (level: number) => {
+  const getStressColor = (level: number) => {
     if (level > 7) return '#EF4444'; // Red
     if (level > 4) return '#F59E0B'; // Yellow
     return '#10B981'; // Green

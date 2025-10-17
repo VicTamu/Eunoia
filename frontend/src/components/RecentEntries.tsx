@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BookOpen, Calendar, Heart, Brain } from 'lucide-react';
+import { BookOpen, Calendar, Heart, Brain, AlertTriangle } from 'lucide-react';
 import { journalApi } from '../services/api';
 import { JournalEntry } from '../types';
 import { useAuth } from '../contexts/AuthContext';

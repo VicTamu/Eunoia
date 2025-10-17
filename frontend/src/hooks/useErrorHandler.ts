@@ -3,9 +3,11 @@
  * Provides consistent error handling patterns for React components
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   errorHandler,
+  ErrorCode,
+  ErrorSeverity,
   StandardError,
   ErrorContext,
 } from '../utils/errorHandler';
@@ -37,7 +39,7 @@ export const useErrorHandler = (options: UseErrorHandlerOptions = {}): UseErrorH
   const [error, setError] = useState<StandardError | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  const [_lastRetryFn, _setLastRetryFn] = useState<(() => Promise<any>) | null>(null);
+  const [lastRetryFn, setLastRetryFn] = useState<(() => Promise<any>) | null>(null);
 
   const isError = error !== null;
 
@@ -104,12 +106,12 @@ export const useErrorHandler = (options: UseErrorHandlerOptions = {}): UseErrorH
   );
 
   const retry = useCallback(() => {
-    if (_lastRetryFn) {
+    if (lastRetryFn) {
       setRetryCount(0);
-      handleAsync(_lastRetryFn);
+      handleAsync(lastRetryFn);
       onRetry?.();
     }
-  }, [_lastRetryFn, handleAsync, onRetry]);
+  }, [lastRetryFn, handleAsync, onRetry]);
 
   const setErrorWithContext = useCallback(
     (error: StandardError | null) => {
@@ -130,7 +132,7 @@ export const useErrorHandler = (options: UseErrorHandlerOptions = {}): UseErrorH
     handleError,
     handleAsync,
     retry,
-    lastRetryFn: _lastRetryFn,
+    lastRetryFn,
   };
 };
 

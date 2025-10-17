@@ -22,11 +22,7 @@ from error_handler import (
 # Database setup
 # Load environment variables
 from dotenv import load_dotenv
-from pathlib import Path
-
-# Load .env from the project root (parent directory)
-env_path = Path(__file__).parent.parent / '.env'
-load_dotenv(env_path)
+load_dotenv()
 
 # Supabase PostgreSQL connection
 SUPABASE_URL = os.environ.get('SUPABASE_URL')
@@ -137,6 +133,18 @@ class JournalEntryResponse(BaseModel):
     word_count: Optional[int]
     created_at: datetime
     updated_at: Optional[datetime]
+
+    @validator('emotions_detected', pre=True)
+    def parse_emotions_detected(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, str):
+            try:
+                import json
+                return json.loads(v)
+            except (json.JSONDecodeError, TypeError):
+                return None
+        return v
 
     class Config:
         from_attributes = True
@@ -490,12 +498,21 @@ async def get_entries(
         entries = query.offset(offset).limit(per_page).all()
 
         # Backward compatibility: ensure updated_at is not None in responses
+        # Also ensure emotions_detected is properly formatted
         for e in entries:
             if getattr(e, "updated_at", None) is None:
                 try:
                     e.updated_at = e.created_at or datetime.utcnow()
                 except Exception:
                     e.updated_at = datetime.utcnow()
+            
+            # Ensure emotions_detected is a list, not a string
+            if hasattr(e, 'emotions_detected') and e.emotions_detected is not None:
+                if isinstance(e.emotions_detected, str):
+                    try:
+                        e.emotions_detected = json.loads(e.emotions_detected)
+                    except (json.JSONDecodeError, TypeError):
+                        e.emotions_detected = []
         
         # Calculate pagination info
         total_pages = (total + per_page - 1) // per_page
