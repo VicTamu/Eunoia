@@ -22,7 +22,11 @@ from error_handler import (
 # Database setup
 # Load environment variables
 from dotenv import load_dotenv
-load_dotenv()
+from pathlib import Path
+
+# Load .env from the project root (parent directory)
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(env_path)
 
 # Supabase PostgreSQL connection
 SUPABASE_URL = os.environ.get('SUPABASE_URL')
