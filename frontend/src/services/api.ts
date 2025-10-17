@@ -33,11 +33,15 @@ api.interceptors.request.use(async (config) => {
     const now = Math.floor(Date.now() / 1000);
     const expiresAt = session.expires_at ? Math.floor(session.expires_at) : 0;
     const timeUntilExpiry = expiresAt - now;
-    
-    if (timeUntilExpiry < 300 && timeUntilExpiry > 0) { // 5 minutes = 300 seconds
+
+    if (timeUntilExpiry < 300 && timeUntilExpiry > 0) {
+      // 5 minutes = 300 seconds
       console.log('[journalApi] Token expiring soon, refreshing proactively...');
       try {
-        const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+        const {
+          data: { session: refreshedSession },
+          error: refreshError,
+        } = await supabase.auth.refreshSession();
         if (!refreshError && refreshedSession?.access_token) {
           console.log('[journalApi] Token refreshed proactively');
           config.headers.Authorization = `Bearer ${refreshedSession.access_token}`;
@@ -68,17 +72,20 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    
+
     // If token expired (401) and we haven't already tried to refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
       try {
         console.log('[journalApi] Token expired, attempting refresh...');
-        
+
         // Try to refresh the session
-        const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
-        
+        const {
+          data: { session },
+          error: refreshError,
+        } = await supabase.auth.refreshSession();
+
         if (refreshError) {
           console.log('[journalApi] Token refresh failed:', refreshError.message);
           // Clear all auth data and redirect to login
@@ -88,12 +95,12 @@ api.interceptors.response.use(
           window.location.href = '/';
           return Promise.reject(error);
         }
-        
+
         if (session?.access_token) {
           // Update the authorization header with new token
           originalRequest.headers.Authorization = `Bearer ${session.access_token}`;
           console.log('[journalApi] Token refreshed successfully, retrying request');
-          
+
           // Retry the original request with new token
           return api(originalRequest);
         } else {
@@ -115,19 +122,19 @@ api.interceptors.response.use(
         return Promise.reject(error);
       }
     }
-    
+
     // Convert axios error to standardized error
     const standardError = createApiError(error, {
       component: 'api',
       action: error.config?.method?.toUpperCase() + ' ' + error.config?.url,
     });
-    
+
     // Log the error
     errorHandler.logError(standardError);
-    
+
     // Re-throw the standardized error
     throw standardError;
-  }
+  },
 );
 
 // Route helpers (keeps string construction in one place)

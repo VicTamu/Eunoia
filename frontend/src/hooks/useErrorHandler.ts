@@ -3,8 +3,12 @@
  * Provides consistent error handling patterns for React components
  */
 
-import { useState, useCallback, useMemo } from 'react';
-import { errorHandler, ErrorCode, ErrorSeverity, StandardError, ErrorContext } from '../utils/errorHandler';
+import { useState, useCallback } from 'react';
+import {
+  errorHandler,
+  StandardError,
+  ErrorContext,
+} from '../utils/errorHandler';
 
 export interface UseErrorHandlerReturn {
   error: StandardError | null;
@@ -13,10 +17,7 @@ export interface UseErrorHandlerReturn {
   setError: (error: StandardError | null) => void;
   clearError: () => void;
   handleError: (error: any, context?: Partial<ErrorContext>) => StandardError;
-  handleAsync: <T>(
-    asyncFn: () => Promise<T>,
-    context?: Partial<ErrorContext>
-  ) => Promise<T | null>;
+  handleAsync: <T>(asyncFn: () => Promise<T>, context?: Partial<ErrorContext>) => Promise<T | null>;
   retry: () => void;
   lastRetryFn: (() => Promise<any>) | null;
 }
@@ -31,19 +32,12 @@ export interface UseErrorHandlerOptions {
 }
 
 export const useErrorHandler = (options: UseErrorHandlerOptions = {}): UseErrorHandlerReturn => {
-  const {
-    component,
-    userId,
-    onError,
-    onRetry,
-    autoRetry = false,
-    maxRetries = 3,
-  } = options;
+  const { component, userId, onError, onRetry, autoRetry = false, maxRetries = 3 } = options;
 
   const [error, setError] = useState<StandardError | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  const [lastRetryFn, setLastRetryFn] = useState<(() => Promise<any>) | null>(null);
+  const [_lastRetryFn, _setLastRetryFn] = useState<(() => Promise<any>) | null>(null);
 
   const isError = error !== null;
 
@@ -52,71 +46,80 @@ export const useErrorHandler = (options: UseErrorHandlerOptions = {}): UseErrorH
     setRetryCount(0);
   }, []);
 
-  const handleError = useCallback((error: any, context?: Partial<ErrorContext>): StandardError => {
-    const errorContext = {
-      component,
-      userId,
-      ...context,
-    };
+  const handleError = useCallback(
+    (error: any, context?: Partial<ErrorContext>): StandardError => {
+      const errorContext = {
+        component,
+        userId,
+        ...context,
+      };
 
-    let standardError: StandardError;
-    
-    if (error instanceof Error && 'code' in error) {
-      // Already a StandardError
-      standardError = error as unknown as StandardError;
-    } else {
-      // Handle API errors or other errors
-      standardError = errorHandler.handleApiError(error, errorContext);
-    }
+      let standardError: StandardError;
 
-    setError(standardError);
-    onError?.(standardError);
-    
-    return standardError;
-  }, [component, userId, onError]);
-
-  const handleAsync = useCallback(async <T>(
-    asyncFn: () => Promise<T>,
-    context?: Partial<ErrorContext>
-  ): Promise<T | null> => {
-    try {
-      setIsLoading(true);
-      clearError();
-      
-      const result = await asyncFn();
-      setRetryCount(0);
-      return result;
-    } catch (err) {
-      const standardError = handleError(err, context);
-      
-      if (autoRetry && retryCount < maxRetries) {
-        setRetryCount(prev => prev + 1);
-        // Auto-retry after a delay
-        setTimeout(() => {
-          handleAsync(asyncFn, context);
-        }, 1000 * Math.pow(2, retryCount)); // Exponential backoff
+      if (error instanceof Error && 'code' in error) {
+        // Already a StandardError
+        standardError = error as unknown as StandardError;
+      } else {
+        // Handle API errors or other errors
+        standardError = errorHandler.handleApiError(error, errorContext);
       }
-      
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [handleError, clearError, autoRetry, retryCount, maxRetries]);
+
+      setError(standardError);
+      onError?.(standardError);
+
+      return standardError;
+    },
+    [component, userId, onError],
+  );
+
+  const handleAsync = useCallback(
+    async <T>(asyncFn: () => Promise<T>, context?: Partial<ErrorContext>): Promise<T | null> => {
+      try {
+        setIsLoading(true);
+        clearError();
+
+        const result = await asyncFn();
+        setRetryCount(0);
+        return result;
+      } catch (err) {
+        const standardError = handleError(err, context);
+
+        if (autoRetry && retryCount < maxRetries) {
+          setRetryCount((prev) => prev + 1);
+          // Auto-retry after a delay
+          setTimeout(
+            () => {
+              handleAsync(asyncFn, context);
+            },
+            1000 * Math.pow(2, retryCount),
+          ); // Exponential backoff
+        }
+
+        return null;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [handleError, clearError, autoRetry, retryCount, maxRetries],
+  );
 
   const retry = useCallback(() => {
-    if (lastRetryFn) {
+    if (_lastRetryFn) {
       setRetryCount(0);
-      handleAsync(lastRetryFn);
+      handleAsync(_lastRetryFn);
       onRetry?.();
     }
-  }, [lastRetryFn, handleAsync, onRetry]);
+  }, [_lastRetryFn, handleAsync, onRetry]);
 
-  const setErrorWithContext = useCallback((error: StandardError | null) => {
-    setError(error);
-    if (error) {
-      onError?.(error);
-    }
-  }, [onError]);
+  const setErrorWithContext = useCallback(
+    (error: StandardError | null) => {
+      setError(error);
+      if (error) {
+        onError?.(error);
+      }
+    },
+    [onError],
+  );
 
   return {
     error,
@@ -127,7 +130,7 @@ export const useErrorHandler = (options: UseErrorHandlerOptions = {}): UseErrorH
     handleError,
     handleAsync,
     retry,
-    lastRetryFn,
+    lastRetryFn: _lastRetryFn,
   };
 };
 

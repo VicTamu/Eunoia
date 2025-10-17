@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 
 interface SignupFormProps {
   onToggleMode: () => void;
@@ -60,13 +60,24 @@ const SignupForm: React.FC<SignupFormProps> = ({ onToggleMode }) => {
         <div className="bg-white shadow-lg rounded-lg p-8">
           <div className="text-center">
             <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
-              <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <svg
+                className="h-6 w-6 text-green-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Check Your Email</h2>
             <p className="text-gray-600 mb-6">
-              We&apos;ve sent you a confirmation link. Please check your email and click the link to verify your account.
+              We&apos;ve sent you a confirmation link. Please check your email and click the link to
+              verify your account.
             </p>
             <button
               onClick={onToggleMode}
@@ -140,7 +151,10 @@ const SignupForm: React.FC<SignupFormProps> = ({ onToggleMode }) => {
           </div>
 
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="confirmPassword"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
               Confirm Password
             </label>
             <div className="relative">

@@ -39,7 +39,7 @@ const DisplayNameSetup: React.FC<DisplayNameSetupProps> = ({ onComplete }) => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
+          Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({
           display_name: displayName.trim(),
@@ -67,9 +67,7 @@ const DisplayNameSetup: React.FC<DisplayNameSetupProps> = ({ onComplete }) => {
               <User className="h-6 w-6 text-blue-600" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900">Choose Your Display Name</h2>
-            <p className="text-gray-600 mt-2">
-              This is how other users will see you in the app
-            </p>
+            <p className="text-gray-600 mt-2">This is how other users will see you in the app</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -95,8 +93,8 @@ const DisplayNameSetup: React.FC<DisplayNameSetupProps> = ({ onComplete }) => {
                     displayName && !isValid
                       ? 'border-red-300 focus:ring-red-500'
                       : displayName && isValid
-                      ? 'border-green-300 focus:ring-green-500'
-                      : 'border-gray-300'
+                        ? 'border-green-300 focus:ring-green-500'
+                        : 'border-gray-300'
                   }`}
                   maxLength={50}
                 />
@@ -104,7 +102,7 @@ const DisplayNameSetup: React.FC<DisplayNameSetupProps> = ({ onComplete }) => {
                   <Check className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-green-500" />
                 )}
               </div>
-              
+
               <div className="mt-2 text-sm text-gray-500">
                 <p>• 2-50 characters</p>
                 <p>• Letters, numbers, spaces, hyphens, and underscores only</p>
@@ -113,7 +111,8 @@ const DisplayNameSetup: React.FC<DisplayNameSetupProps> = ({ onComplete }) => {
 
               {displayName && !isValid && (
                 <p className="mt-2 text-sm text-red-600">
-                  Display name must be 2-50 characters and contain only letters, numbers, spaces, hyphens, and underscores.
+                  Display name must be 2-50 characters and contain only letters, numbers, spaces,
+                  hyphens, and underscores.
                 </p>
               )}
             </div>

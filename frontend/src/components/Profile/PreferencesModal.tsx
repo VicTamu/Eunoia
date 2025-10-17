@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Palette, Bell, Eye, Shield, Database, Moon, Sun, Zap } from 'lucide-react';
+import { X, Palette, Bell, Shield, Database, Moon, Sun } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface PreferencesModalProps {
@@ -13,41 +13,41 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ onClose }) => {
   const [autoSave, setAutoSave] = useState(true);
 
   const themeOptions = [
-    { 
-      value: 'light', 
-      label: 'Light', 
+    {
+      value: 'light',
+      label: 'Light',
       description: 'Clean and bright interface',
       icon: Sun,
-      preview: 'bg-white border-gray-200'
+      preview: 'bg-white border-gray-200',
     },
-    { 
-      value: 'dark', 
-      label: 'Dark', 
+    {
+      value: 'dark',
+      label: 'Dark',
       description: 'Easy on the eyes',
       icon: Moon,
-      preview: 'bg-gray-900 border-gray-700'
+      preview: 'bg-gray-900 border-gray-700',
     },
-    { 
-      value: 'blue', 
-      label: 'Ocean Blue', 
+    {
+      value: 'blue',
+      label: 'Ocean Blue',
       description: 'Calming blue tones',
       icon: Palette,
-      preview: 'bg-blue-50 border-blue-200'
+      preview: 'bg-blue-50 border-blue-200',
     },
-    { 
-      value: 'green', 
-      label: 'Forest Green', 
+    {
+      value: 'green',
+      label: 'Forest Green',
       description: 'Natural and peaceful',
       icon: Palette,
-      preview: 'bg-green-50 border-green-200'
+      preview: 'bg-green-50 border-green-200',
     },
-    { 
-      value: 'purple', 
-      label: 'Royal Purple', 
+    {
+      value: 'purple',
+      label: 'Royal Purple',
       description: 'Creative and inspiring',
       icon: Palette,
-      preview: 'bg-purple-50 border-purple-200'
-    }
+      preview: 'bg-purple-50 border-purple-200',
+    },
   ];
 
   const handleSave = () => {
@@ -63,9 +63,7 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ onClose }) => {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Preferences
-          </h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Preferences</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -96,7 +94,9 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ onClose }) => {
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-lg ${option.preview} border flex items-center justify-center`}>
+                      <div
+                        className={`w-8 h-8 rounded-lg ${option.preview} border flex items-center justify-center`}
+                      >
                         <Icon className="h-4 w-4 text-gray-600 dark:text-gray-400" />
                       </div>
                       <div>

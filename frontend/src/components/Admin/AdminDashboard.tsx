@@ -49,7 +49,7 @@ const AdminDashboard: React.FC = () => {
         totalEntries: 0,
         entriesToday: 0,
         entriesThisWeek: 0,
-        entriesThisMonth: 0
+        entriesThisMonth: 0,
       });
       setUsers([]);
     } catch (err) {
@@ -196,20 +196,24 @@ const AdminDashboard: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.role === 'admin' 
-                            ? 'bg-red-100 text-red-800' 
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
+                        <span
+                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            user.role === 'admin'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-blue-100 text-blue-800'
+                          }`}
+                        >
                           {user.role}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.is_active === 'true' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
+                        <span
+                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            user.is_active === 'true'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
                           {user.is_active === 'true' ? 'Active' : 'Inactive'}
                         </span>
                       </td>

@@ -13,8 +13,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: true,
     // Force fresh tokens on every request
-    flowType: 'pkce'
-  }
+    flowType: 'pkce',
+  },
 });
 
 // Auth helper functions
@@ -68,7 +68,7 @@ export const auth = {
     sessionStorage.clear();
     // Force a page reload to get fresh tokens
     window.location.reload();
-  }
+  },
 };
 
 export default supabase;

@@ -37,7 +37,7 @@ const ProfileManager: React.FC = () => {
       setLoading(true);
       const response = await fetch('/api/profile', {
         headers: {
-          'Authorization': `Bearer ${session?.access_token}`,
+          Authorization: `Bearer ${session?.access_token}`,
         },
       });
 
@@ -80,7 +80,7 @@ const ProfileManager: React.FC = () => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
+          Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({
           display_name: displayName.trim(),
@@ -156,9 +156,7 @@ const ProfileManager: React.FC = () => {
         <div className="space-y-6">
           {/* Email (read-only) */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email Address
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
             <input
               type="email"
               value={profile?.email || ''}
@@ -170,9 +168,7 @@ const ProfileManager: React.FC = () => {
 
           {/* Display Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Display Name
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Display Name</label>
             {editing ? (
               <div>
                 <input
@@ -184,8 +180,8 @@ const ProfileManager: React.FC = () => {
                     displayName && !validateDisplayName(displayName)
                       ? 'border-red-300 focus:ring-red-500'
                       : displayName && validateDisplayName(displayName)
-                      ? 'border-green-300 focus:ring-green-500'
-                      : 'border-gray-300'
+                        ? 'border-green-300 focus:ring-green-500'
+                        : 'border-gray-300'
                   }`}
                   maxLength={50}
                 />
@@ -197,7 +193,8 @@ const ProfileManager: React.FC = () => {
                 )}
                 {displayName && !validateDisplayName(displayName) && (
                   <p className="mt-1 text-sm text-red-600">
-                    Display name must be 2-50 characters and contain only letters, numbers, spaces, hyphens, and underscores.
+                    Display name must be 2-50 characters and contain only letters, numbers, spaces,
+                    hyphens, and underscores.
                   </p>
                 )}
               </div>
@@ -239,9 +236,7 @@ const ProfileManager: React.FC = () => {
 
           {/* Role (read-only) */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Role
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
             <input
               type="text"
               value={profile?.role || 'user'}

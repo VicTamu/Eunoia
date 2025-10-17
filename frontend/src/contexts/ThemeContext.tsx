@@ -32,11 +32,11 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
 
   useEffect(() => {
     localStorage.setItem('eunoia-theme', theme);
-    
+
     // Apply theme to document root
     const root = document.documentElement;
     root.className = `theme-${theme}`;
-    
+
     // Update meta theme-color for mobile browsers
     const metaThemeColor = document.querySelector('meta[name="theme-color"]');
     if (metaThemeColor) {
@@ -45,7 +45,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         dark: '#1f2937',
         blue: '#3b82f6',
         green: '#10b981',
-        purple: '#8b5cf6'
+        purple: '#8b5cf6',
       };
       metaThemeColor.setAttribute('content', colors[theme]);
     }
@@ -54,12 +54,8 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const value = {
     theme,
     setTheme,
-    isDark
+    isDark,
   };
 
-  return (
-    <ThemeContext.Provider value={value}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 };

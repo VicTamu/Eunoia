@@ -15,7 +15,7 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ onEntrySaved }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!content.trim()) {
       setMessage('Please write something before saving your entry.');
       return;
@@ -30,11 +30,11 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ onEntrySaved }) => {
         content: content.trim(),
         date: new Date(selectedDate + 'T00:00:00').toISOString(),
       });
-      
+
       onEntrySaved(entry);
       setContent('');
       setMessage('Entry saved successfully! 🎉');
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => setMessage(''), 3000);
     } catch (error) {

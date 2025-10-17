@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BookOpen, Calendar, Heart, Brain, AlertTriangle } from 'lucide-react';
+import { BookOpen, Calendar, Heart, Brain } from 'lucide-react';
 import { journalApi } from '../services/api';
 import { JournalEntry } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -85,18 +85,18 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
   const displayEntries = useMemo(() => {
     // If there's an error, don't show sample data - show the error
     if (error) return [];
-    
+
     // If we have fetched entries, use them (with new entries if any)
     if (fetchedEntries.length > 0) {
       if (!newEntries || newEntries.length === 0) return fetchedEntries;
-      const newIds = new Set(newEntries.map(e => e.id));
-      const filteredFetched = fetchedEntries.filter(e => !newIds.has(e.id));
+      const newIds = new Set(newEntries.map((e) => e.id));
+      const filteredFetched = fetchedEntries.filter((e) => !newIds.has(e.id));
       return [...newEntries, ...filteredFetched];
     }
-    
+
     // If we have new entries but no fetched ones yet, show new entries
     if (newEntries && newEntries.length > 0) return newEntries;
-    
+
     // Only show sample data if we have no error, no fetched entries, and no new entries
     return SAMPLE_ENTRIES;
   }, [newEntries, fetchedEntries, SAMPLE_ENTRIES, error]);
@@ -110,7 +110,7 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
 
@@ -123,16 +123,16 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
 
   const getEmotionEmoji = (emotion: string | null) => {
     const emotionMap: { [key: string]: string } = {
-      'joy': '😊',
-      'sadness': '😢',
-      'anger': '😠',
-      'fear': '😨',
-      'surprise': '😲',
-      'disgust': '🤢',
-      'neutral': '😐',
-      'love': '😍',
-      'anxiety': '😰',
-      'excitement': '🤩'
+      joy: '😊',
+      sadness: '😢',
+      anger: '😠',
+      fear: '😨',
+      surprise: '😲',
+      disgust: '🤢',
+      neutral: '😐',
+      love: '😍',
+      anxiety: '😰',
+      excitement: '🤩',
     };
     return emotionMap[emotion?.toLowerCase() || 'neutral'] || '😐';
   };
@@ -170,14 +170,18 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
           <div className="flex">
             <div className="flex-shrink-0">
               <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
               </svg>
             </div>
             <div className="ml-3">
               <h3 className="text-sm font-medium text-red-800">Error loading entries</h3>
               <div className="mt-2 text-sm text-red-700">
                 <p>{error}</p>
-                <button 
+                <button
                   onClick={loadEntries}
                   className="mt-2 text-red-600 hover:text-red-500 font-medium"
                 >
@@ -190,7 +194,6 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
       </div>
     );
   }
-
 
   if (displayEntries.length === 0) {
     return (
@@ -213,7 +216,10 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
 
       <div className="space-y-4">
         {displayEntries.map((entry) => (
-          <div key={entry.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+          <div
+            key={entry.id}
+            className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+          >
             <div className="flex items-start justify-between mb-2">
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Calendar className="h-4 w-4" />
@@ -237,7 +243,8 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
                 <div className="flex items-center gap-1">
                   <Brain className="h-4 w-4 text-purple-600" />
                   <span className="text-gray-600">
-                    Mood: {entry.sentiment_score !== null ? entry.sentiment_score.toFixed(2) : 'N/A'}
+                    Mood:{' '}
+                    {entry.sentiment_score !== null ? entry.sentiment_score.toFixed(2) : 'N/A'}
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
@@ -247,9 +254,7 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
                   </span>
                 </div>
               </div>
-              <div className="text-gray-500">
-                {entry.emotion || 'neutral'}
-              </div>
+              <div className="text-gray-500">{entry.emotion || 'neutral'}</div>
             </div>
           </div>
         ))}
@@ -257,7 +262,7 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
 
       {displayEntries.length >= 10 && (
         <div className="mt-4 text-center">
-          <button 
+          <button
             onClick={loadEntries}
             className="text-blue-600 hover:text-blue-800 text-sm font-medium"
           >

@@ -11,26 +11,26 @@ export enum ErrorCode {
   API_FORBIDDEN = 'NET_004',
   API_NOT_FOUND = 'NET_005',
   API_SERVER_ERROR = 'NET_006',
-  
+
   // Validation Errors
   VALIDATION_ERROR = 'VAL_001',
   REQUIRED_FIELD_MISSING = 'VAL_002',
   INVALID_FORMAT = 'VAL_003',
-  
+
   // Authentication Errors
   AUTH_TOKEN_MISSING = 'AUTH_001',
   AUTH_TOKEN_EXPIRED = 'AUTH_002',
   AUTH_LOGIN_FAILED = 'AUTH_003',
-  
+
   // Data Errors
   DATA_LOAD_ERROR = 'DATA_001',
   DATA_SAVE_ERROR = 'DATA_002',
   DATA_NOT_FOUND = 'DATA_003',
-  
+
   // ML/AI Errors
   ML_ANALYSIS_ERROR = 'ML_001',
   ML_SERVICE_UNAVAILABLE = 'ML_002',
-  
+
   // General Application Errors
   UNKNOWN_ERROR = 'APP_001',
   CONFIGURATION_ERROR = 'APP_002',
@@ -84,7 +84,7 @@ export class ErrorHandler {
     userId?: string,
     component?: string,
     action?: string,
-    additionalData?: Record<string, any>
+    additionalData?: Record<string, any>,
   ): ErrorContext {
     return {
       requestId: this.generateRequestId(),
@@ -115,7 +115,7 @@ export class ErrorHandler {
       context?: ErrorContext;
       originalError?: Error;
       userMessage?: string;
-    } = {}
+    } = {},
   ): StandardError {
     const {
       detail,
@@ -148,7 +148,7 @@ export class ErrorHandler {
 
     // Console logging based on severity
     const logMessage = `[${error.code}] ${error.message} | Request: ${error.context.requestId}`;
-    
+
     switch (error.severity) {
       case ErrorSeverity.CRITICAL:
         console.error(logMessage, error);
@@ -173,9 +173,10 @@ export class ErrorHandler {
   /**
    * Get user-friendly error message
    */
-  private getUserFriendlyMessage(code: ErrorCode, message: string): string {
+  private getUserFriendlyMessage(code: ErrorCode, _message: string): string {
     const userMessages: Record<ErrorCode, string> = {
-      [ErrorCode.NETWORK_ERROR]: 'Unable to connect to the server. Please check your internet connection.',
+      [ErrorCode.NETWORK_ERROR]:
+        'Unable to connect to the server. Please check your internet connection.',
       [ErrorCode.API_TIMEOUT]: 'The request is taking too long. Please try again.',
       [ErrorCode.API_UNAUTHORIZED]: 'Please log in to continue.',
       [ErrorCode.API_FORBIDDEN]: 'You do not have permission to perform this action.',
@@ -190,7 +191,8 @@ export class ErrorHandler {
       [ErrorCode.DATA_LOAD_ERROR]: 'Failed to load data. Please try refreshing the page.',
       [ErrorCode.DATA_SAVE_ERROR]: 'Failed to save data. Please try again.',
       [ErrorCode.DATA_NOT_FOUND]: 'No data found.',
-      [ErrorCode.ML_ANALYSIS_ERROR]: 'AI analysis is temporarily unavailable. Your entry has been saved.',
+      [ErrorCode.ML_ANALYSIS_ERROR]:
+        'AI analysis is temporarily unavailable. Your entry has been saved.',
       [ErrorCode.ML_SERVICE_UNAVAILABLE]: 'AI features are temporarily unavailable.',
       [ErrorCode.UNKNOWN_ERROR]: 'An unexpected error occurred. Please try again.',
       [ErrorCode.CONFIGURATION_ERROR]: 'Application configuration error. Please contact support.',
@@ -216,14 +218,14 @@ export class ErrorHandler {
       context?.userId,
       context?.component,
       context?.action,
-      context?.additionalData
+      context?.additionalData,
     );
 
     if (error.response) {
       // Server responded with error status
       const status = error.response.status;
       const data = error.response.data;
-      
+
       let code: ErrorCode;
       let message: string;
       let severity: ErrorSeverity = ErrorSeverity.MEDIUM;
@@ -311,23 +313,51 @@ export const createApiError = (error: any, context?: Partial<ErrorContext>) =>
   errorHandler.handleApiError(error, context);
 
 export const createValidationError = (message: string, context?: Partial<ErrorContext>) =>
-  errorHandler.createError(ErrorCode.VALIDATION_ERROR, message, { 
-    context: context ? errorHandler.createErrorContext(context.userId, context.component, context.action, context.additionalData) : undefined 
+  errorHandler.createError(ErrorCode.VALIDATION_ERROR, message, {
+    context: context
+      ? errorHandler.createErrorContext(
+          context.userId,
+          context.component,
+          context.action,
+          context.additionalData,
+        )
+      : undefined,
   });
 
 export const createNetworkError = (message: string, context?: Partial<ErrorContext>) =>
-  errorHandler.createError(ErrorCode.NETWORK_ERROR, message, { 
-    context: context ? errorHandler.createErrorContext(context.userId, context.component, context.action, context.additionalData) : undefined, 
-    severity: ErrorSeverity.HIGH 
+  errorHandler.createError(ErrorCode.NETWORK_ERROR, message, {
+    context: context
+      ? errorHandler.createErrorContext(
+          context.userId,
+          context.component,
+          context.action,
+          context.additionalData,
+        )
+      : undefined,
+    severity: ErrorSeverity.HIGH,
   });
 
 export const createDataError = (message: string, context?: Partial<ErrorContext>) =>
-  errorHandler.createError(ErrorCode.DATA_LOAD_ERROR, message, { 
-    context: context ? errorHandler.createErrorContext(context.userId, context.component, context.action, context.additionalData) : undefined 
+  errorHandler.createError(ErrorCode.DATA_LOAD_ERROR, message, {
+    context: context
+      ? errorHandler.createErrorContext(
+          context.userId,
+          context.component,
+          context.action,
+          context.additionalData,
+        )
+      : undefined,
   });
 
 export const createMLError = (message: string, context?: Partial<ErrorContext>) =>
-  errorHandler.createError(ErrorCode.ML_ANALYSIS_ERROR, message, { 
-    context: context ? errorHandler.createErrorContext(context.userId, context.component, context.action, context.additionalData) : undefined, 
-    severity: ErrorSeverity.LOW // ML errors are often non-critical
+  errorHandler.createError(ErrorCode.ML_ANALYSIS_ERROR, message, {
+    context: context
+      ? errorHandler.createErrorContext(
+          context.userId,
+          context.component,
+          context.action,
+          context.additionalData,
+        )
+      : undefined,
+    severity: ErrorSeverity.LOW, // ML errors are often non-critical
   });

@@ -33,7 +33,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     // Get initial session
     const getInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -42,24 +44,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     getInitialSession();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event: any, session: any) => {
-        console.log('[AuthContext] Auth state change:', event);
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
+      console.log('[AuthContext] Auth state change:', event);
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
 
     // Set up automatic token refresh
     const refreshInterval = setInterval(async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (session) {
         // Check if token expires in the next 5 minutes
         const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
         const now = Date.now();
         const fiveMinutes = 5 * 60 * 1000;
-        
+
         if (expiresAt - now < fiveMinutes) {
           console.log('[AuthContext] Token expiring soon, refreshing...');
           await supabase.auth.refreshSession();
@@ -94,9 +98,5 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signOut,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

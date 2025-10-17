@@ -1,5 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+} from 'recharts';
 import { TrendingUp, Brain, Heart, Calendar, AlertCircle } from 'lucide-react';
 import { journalApi } from '../services/api';
 import { SentimentTrend, Insight } from '../types';
@@ -10,46 +20,55 @@ const Dashboard: React.FC = () => {
   const [trends, setTrends] = useState<SentimentTrend[]>([]);
   const [insights, setInsights] = useState<Insight | null>(null);
   const { user, session, loading } = useAuth();
-  const { error, isLoading, handleAsync, retry, lastRetryFn } = useDataErrorHandler({
+  const {
+    error,
+    isLoading,
+    handleAsync,
+    retry,
+    lastRetryFn: _lastRetryFn,
+  } = useDataErrorHandler({
     component: 'Dashboard',
   });
+
+  const loadDashboardData = useCallback(async () => {
+    const _result = await handleAsync(
+      async () => {
+        const [trendsData, insightsData] = await Promise.all([
+          journalApi.getSentimentTrends(14), // Last 14 days
+          journalApi.getInsights(),
+        ]);
+
+        setTrends(trendsData.trends);
+        setInsights(insightsData);
+      },
+      {
+        component: 'Dashboard',
+        action: 'load_dashboard_data',
+      },
+    );
+  }, [handleAsync]);
 
   useEffect(() => {
     // Only load data when user is authenticated and session is available
     if (user && session && !loading) {
       loadDashboardData();
     }
-  }, [user, session, loading]);
-
-  const loadDashboardData = async () => {
-    const result = await handleAsync(async () => {
-      const [trendsData, insightsData] = await Promise.all([
-        journalApi.getSentimentTrends(14), // Last 14 days
-        journalApi.getInsights()
-      ]);
-      
-      setTrends(trendsData.trends);
-      setInsights(insightsData);
-    }, {
-      component: 'Dashboard',
-      action: 'load_dashboard_data'
-    });
-  };
+  }, [user, session, loading, loadDashboardData]);
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric' 
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
     });
   };
 
-  const getSentimentColor = (score: number) => {
+  const _getSentimentColor = (score: number) => {
     if (score > 7) return '#10B981'; // Green
     if (score < 3) return '#EF4444'; // Red
     return '#6B7280'; // Gray
   };
 
-  const getStressColor = (level: number) => {
+  const _getStressColor = (level: number) => {
     if (level > 7) return '#EF4444'; // Red
     if (level > 4) return '#F59E0B'; // Yellow
     return '#10B981'; // Green
@@ -104,14 +123,14 @@ const Dashboard: React.FC = () => {
             <Brain className="h-5 w-5 text-purple-600" />
             <h2 className="text-xl font-semibold text-gray-800">AI Insights</h2>
           </div>
-          
+
           <div className="space-y-4">
             {insights.insights.map((insight, index) => (
               <div key={index} className="p-3 bg-blue-50 rounded-md">
                 <p className="text-blue-800">{insight}</p>
               </div>
             ))}
-            
+
             {insights.suggestions.length > 0 && (
               <div className="mt-4">
                 <h4 className="font-medium text-gray-700 mb-2">Suggestions:</h4>
@@ -137,30 +156,20 @@ const Dashboard: React.FC = () => {
             <TrendingUp className="h-5 w-5 text-green-600" />
             <h3 className="text-lg font-semibold text-gray-800">Mood Trends</h3>
           </div>
-          
+
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={trends}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="date" 
-                tickFormatter={formatDate}
-                tick={{ fontSize: 12 }}
-              />
-              <YAxis 
-                domain={[0, 10]}
-                tick={{ fontSize: 12 }}
-              />
-              <Tooltip 
+              <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 12 }} />
+              <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} />
+              <Tooltip
                 labelFormatter={(value) => formatDate(value)}
-                formatter={(value: number) => [
-                  value.toFixed(2), 
-                  'Sentiment Score'
-                ]}
+                formatter={(value: number) => [value.toFixed(2), 'Sentiment Score']}
               />
-              <Line 
-                type="monotone" 
-                dataKey="avg_sentiment" 
-                stroke="#3B82F6" 
+              <Line
+                type="monotone"
+                dataKey="avg_sentiment"
+                stroke="#3B82F6"
                 strokeWidth={2}
                 dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
               />
@@ -174,31 +183,17 @@ const Dashboard: React.FC = () => {
             <Heart className="h-5 w-5 text-red-600" />
             <h3 className="text-lg font-semibold text-gray-800">Stress Levels</h3>
           </div>
-          
+
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={trends}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="date" 
-                tickFormatter={formatDate}
-                tick={{ fontSize: 12 }}
-              />
-              <YAxis 
-                domain={[0, 10]}
-                tick={{ fontSize: 12 }}
-              />
-              <Tooltip 
+              <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 12 }} />
+              <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} />
+              <Tooltip
                 labelFormatter={(value) => formatDate(value)}
-                formatter={(value: number) => [
-                  value.toFixed(1), 
-                  'Stress Level'
-                ]}
+                formatter={(value: number) => [value.toFixed(1), 'Stress Level']}
               />
-              <Bar 
-                dataKey="avg_stress" 
-                fill="#EF4444"
-                radius={[2, 2, 0, 0]}
-              />
+              <Bar dataKey="avg_stress" fill="#EF4444" radius={[2, 2, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -210,52 +205,94 @@ const Dashboard: React.FC = () => {
           <Brain className="h-5 w-5 text-purple-600" />
           <h3 className="text-lg font-semibold text-gray-800">Enhanced Emotion Analysis</h3>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <h4 className="font-medium text-gray-700 mb-3">GoEmotions Categories</h4>
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
-                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Joy</span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Love</span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Gratitude</span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Pride</span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Relief</span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Excitement</span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Optimism</span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Admiration</span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Amusement</span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Approval</span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Caring</span>
+                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                  Joy
+                </span>
+                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                  Love
+                </span>
+                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                  Gratitude
+                </span>
+                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                  Pride
+                </span>
+                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                  Relief
+                </span>
+                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                  Excitement
+                </span>
+                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                  Optimism
+                </span>
+                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                  Admiration
+                </span>
+                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                  Amusement
+                </span>
+                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                  Approval
+                </span>
+                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                  Caring
+                </span>
               </div>
             </div>
           </div>
-          
+
           <div>
             <h4 className="font-medium text-gray-700 mb-3">Negative Emotions</h4>
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
-                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">Sadness</span>
-                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">Anger</span>
+                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                  Sadness
+                </span>
+                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                  Anger
+                </span>
                 <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">Fear</span>
-                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">Disgust</span>
-                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">Grief</span>
-                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">Remorse</span>
-                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">Disappointment</span>
-                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">Nervousness</span>
-                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">Embarrassment</span>
-                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">Annoyance</span>
-                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">Disapproval</span>
+                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                  Disgust
+                </span>
+                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                  Grief
+                </span>
+                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                  Remorse
+                </span>
+                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                  Disappointment
+                </span>
+                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                  Nervousness
+                </span>
+                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                  Embarrassment
+                </span>
+                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                  Annoyance
+                </span>
+                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                  Disapproval
+                </span>
               </div>
             </div>
           </div>
         </div>
-        
+
         <div className="mt-4 p-3 bg-blue-50 rounded-md">
           <p className="text-sm text-blue-800">
-            <strong>Enhanced Analysis:</strong> Our AI now uses Google&apos;s GoEmotions dataset to detect 27
-            different emotion categories, providing more nuanced and accurate emotional insights for your
-            journal entries.
+            <strong>Enhanced Analysis:</strong> Our AI now uses Google&apos;s GoEmotions dataset to
+            detect 27 different emotion categories, providing more nuanced and accurate emotional
+            insights for your journal entries.
           </p>
         </div>
       </div>
@@ -265,20 +302,22 @@ const Dashboard: React.FC = () => {
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Summary</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="text-center p-4 bg-gray-50 rounded-lg">
-            <div className="text-2xl font-bold text-blue-600">
-              {trends.length}
-            </div>
+            <div className="text-2xl font-bold text-blue-600">{trends.length}</div>
             <div className="text-sm text-gray-600">Days with entries</div>
           </div>
           <div className="text-center p-4 bg-gray-50 rounded-lg">
             <div className="text-2xl font-bold text-green-600">
-              {trends.length > 0 ? (trends.reduce((sum, t) => sum + t.entry_count, 0) / trends.length).toFixed(1) : 0}
+              {trends.length > 0
+                ? (trends.reduce((sum, t) => sum + t.entry_count, 0) / trends.length).toFixed(1)
+                : 0}
             </div>
             <div className="text-sm text-gray-600">Avg entries per day</div>
           </div>
           <div className="text-center p-4 bg-gray-50 rounded-lg">
             <div className="text-2xl font-bold text-purple-600">
-              {trends.length > 0 ? (trends.reduce((sum, t) => sum + t.avg_sentiment, 0) / trends.length).toFixed(2) : 0}
+              {trends.length > 0
+                ? (trends.reduce((sum, t) => sum + t.avg_sentiment, 0) / trends.length).toFixed(2)
+                : 0}
             </div>
             <div className="text-sm text-gray-600">Avg mood score</div>
           </div>
@@ -291,9 +330,9 @@ const Dashboard: React.FC = () => {
           <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
           <div className="text-sm text-yellow-800">
             <strong>AI Analysis Disclaimer:</strong> The insights and mood analysis provided by this
-            app are based on AI analysis of your text and are not a substitute for professional medical
-            or mental health advice. If you&apos;re experiencing significant emotional distress, please
-            consider speaking with a qualified healthcare provider.
+            app are based on AI analysis of your text and are not a substitute for professional
+            medical or mental health advice. If you&apos;re experiencing significant emotional
+            distress, please consider speaking with a qualified healthcare provider.
           </div>
         </div>
       </div>
