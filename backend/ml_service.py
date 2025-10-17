@@ -4,6 +4,7 @@ from typing import Dict, List, Tuple
 import random
 import numpy as np
 import os
+from error_handler import ErrorHandler, ErrorFactory, ErrorCode, ErrorSeverity, error_handler, error_factory
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -125,9 +126,17 @@ class SentimentAnalyzer:
         Returns:
             Dict: Analysis results containing sentiment, emotion, and stress level
         """
+        context = error_handler.create_error_context(
+            endpoint="ml_analysis",
+            additional_data={"text_length": len(text) if text else 0}
+        )
+        
         try:
             # Clean and prepare text
             text = text.strip().lower()
+            
+            if not text:
+                return self._get_fallback_analysis()
             
             # Sentiment analysis
             sentiment_result = self._analyze_sentiment(text)
@@ -150,7 +159,13 @@ class SentimentAnalyzer:
             }
             
         except Exception as e:
-            logger.error(f"Error in text analysis: {e}")
+            error = error_factory.ml_service_error(
+                message="Text analysis failed",
+                detail=str(e),
+                context=context,
+                original_exception=e
+            )
+            error_handler.log_error(error)
             return self._get_fallback_analysis()
     
     def _analyze_sentiment(self, text: str) -> Dict:
@@ -286,11 +301,11 @@ class SentimentAnalyzer:
         return 'neutral'
     
     def _analyze_stress_enhanced(self, text: str, emotion_result: Dict) -> float:
-        """Enhanced stress analysis using GoEmotions emotional context"""
+        """Enhanced stress analysis using GoEmotions emotional context (0-10 scale)"""
         try:
             # Base stress from keywords
             stress_count = sum(1 for keyword in self.stress_keywords if keyword in text)
-            keyword_stress = min(stress_count * 0.1, 0.8)
+            keyword_stress = min(stress_count * 1.0, 8.0)  # 0-8 range
             
             # Enhanced stress from GoEmotions
             emotion_stress = 0.0
@@ -298,70 +313,70 @@ class SentimentAnalyzer:
                 # Check for high-stress emotions
                 primary_emotion = emotion_result.get('primary_emotion', '')
                 if primary_emotion in ['fear', 'nervousness', 'anxiety', 'worry']:
-                    emotion_stress = 0.6
+                    emotion_stress = 6.0
                 elif primary_emotion in ['anger', 'frustration', 'annoyance']:
-                    emotion_stress = 0.4
+                    emotion_stress = 4.0
                 elif primary_emotion in ['sadness', 'grief', 'disappointment']:
-                    emotion_stress = 0.3
+                    emotion_stress = 3.0
                 else:
-                    emotion_stress = 0.2
+                    emotion_stress = 2.0
             
             # Additional stress indicators
             stress_indicators = ['!', 'urgent', 'asap', 'deadline', 'pressure', 'overwhelmed']
             indicator_count = sum(1 for indicator in stress_indicators if indicator in text)
-            indicator_stress = min(indicator_count * 0.05, 0.2)
+            indicator_stress = min(indicator_count * 0.5, 2.0)  # 0-2 range
             
             # Combine all stress factors
-            total_stress = min(keyword_stress + emotion_stress + indicator_stress, 1.0)
+            total_stress = min(keyword_stress + emotion_stress + indicator_stress, 10.0)
             
-            return round(total_stress, 2)
+            return round(total_stress, 1)
             
         except Exception as e:
             logger.error(f"Error in enhanced stress analysis: {e}")
             return self._analyze_stress(text)
     
     def _analyze_stress(self, text: str) -> float:
-        """Analyze stress level based on keywords and sentiment"""
+        """Analyze stress level based on keywords and sentiment (0-10 scale)"""
         try:
             stress_count = sum(1 for keyword in self.stress_keywords if keyword in text)
             
             # Base stress level from keyword count
-            keyword_stress = min(stress_count * 0.1, 0.8)
+            keyword_stress = min(stress_count * 1.0, 8.0)  # 0-8 range
             
             # Additional stress indicators
             stress_indicators = ['!', 'urgent', 'asap', 'deadline', 'pressure']
             indicator_count = sum(1 for indicator in stress_indicators if indicator in text)
-            indicator_stress = min(indicator_count * 0.05, 0.2)
+            indicator_stress = min(indicator_count * 0.5, 2.0)  # 0-2 range
             
             # Combine keyword and indicator stress
-            total_stress = min(keyword_stress + indicator_stress, 1.0)
+            total_stress = min(keyword_stress + indicator_stress, 10.0)
             
-            return round(total_stress, 2)
+            return round(total_stress, 1)
             
         except Exception as e:
             logger.error(f"Error in stress analysis: {e}")
-            return 0.3  # Default moderate stress level
+            return 3.0  # Default moderate stress level (0-10 scale)
     
     def _normalize_sentiment_score(self, label: str, confidence: float) -> float:
-        """Convert sentiment label and confidence to a normalized score (-1 to 1)"""
+        """Convert sentiment label and confidence to a normalized score (0 to 10)"""
         label = label.lower()
         if 'positive' in label:
-            return confidence
+            return 5 + (confidence * 5)  # 5-10 range
         elif 'negative' in label:
-            return -confidence
+            return 5 - (confidence * 5)  # 0-5 range
         else:  # neutral
-            return 0.0
+            return 5.0
     
     def _get_fallback_analysis(self) -> Dict:
         """Return fallback analysis when models fail"""
         return {
-            "sentiment_score": 0.0,
+            "sentiment_score": 5.0,
             "sentiment_label": "neutral",
             "emotion": "neutral",
             "emotion_confidence": 0.5,
             "emotions_detected": [("neutral", 0.5)],
             "emotion_group": "neutral",
-            "stress_level": 0.3,
+            "stress_level": 3.0,
             "analysis_confidence": 0.5
         }
     
@@ -381,7 +396,7 @@ class SentimentAnalyzer:
         }
     
     def _rule_based_sentiment(self, text: str) -> Dict:
-        """Rule-based sentiment analysis using keyword matching"""
+        """Rule-based sentiment analysis using keyword matching (0-10 scale)"""
         text_lower = text.lower()
         
         positive_count = sum(1 for word in self.positive_keywords if word in text_lower)
@@ -391,18 +406,18 @@ class SentimentAnalyzer:
         intensifiers = ['very', 'extremely', 'incredibly', 'absolutely', 'totally', 'completely']
         intensifier_count = sum(1 for word in intensifiers if word in text_lower)
         
-        # Calculate sentiment score
+        # Calculate sentiment score (0-10 scale)
         if positive_count > negative_count:
-            score = min(0.3 + (positive_count * 0.2) + (intensifier_count * 0.1), 1.0)
+            score = min(5.0 + (positive_count * 1.0) + (intensifier_count * 0.5), 10.0)
             label = "positive"
         elif negative_count > positive_count:
-            score = max(-0.3 - (negative_count * 0.2) - (intensifier_count * 0.1), -1.0)
+            score = max(5.0 - (negative_count * 1.0) - (intensifier_count * 0.5), 0.0)
             label = "negative"
         else:
-            score = 0.0
+            score = 5.0
             label = "neutral"
         
-        confidence = min(0.5 + abs(score) * 0.5, 1.0)
+        confidence = min(0.5 + abs(score - 5.0) * 0.1, 1.0)
         
         return {
             "label": label,

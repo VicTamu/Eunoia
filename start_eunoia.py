@@ -13,6 +13,13 @@ import signal
 import atexit
 from pathlib import Path
 from datetime import datetime
+from typing import Dict
+
+try:
+    from dotenv import load_dotenv
+except Exception:
+    # dotenv is optional; script still works if backend loads env itself
+    load_dotenv = None  # type: ignore
 
 # Global variables to track processes
 backend_process = None
@@ -64,6 +71,61 @@ def check_dependencies():
     
     print("✅ All dependencies are available!")
     return True
+
+def _mask_value(value: str) -> str:
+    """Mask sensitive env values for logging."""
+    if not value:
+        return ""
+    if len(value) <= 6:
+        return "***"
+    return value[:3] + "***" + value[-3:]
+
+def load_env_files() -> Dict[str, str]:
+    """Load environment variables from .env files and export to os.environ.
+    Order of precedence (last wins): project .env -> backend/.env -> frontend/.env
+    Returns a dict of keys loaded (masked values for display only).
+    """
+    loaded: Dict[str, str] = {}
+    project_root = Path(__file__).parent
+    env_paths = [
+        project_root / ".env",
+        project_root / "backend" / ".env",
+        project_root / "frontend" / ".env",
+    ]
+
+    print("🧪 Loading environment variables from .env files...")
+    for env_path in env_paths:
+        try:
+            if env_path.exists():
+                if load_dotenv is not None:
+                    # load_dotenv returns True if file was loaded
+                    load_dotenv(dotenv_path=env_path, override=True)
+                else:
+                    # Manual parse as a fallback if python-dotenv missing
+                    for line in env_path.read_text(encoding="utf-8").splitlines():
+                        line = line.strip()
+                        if not line or line.startswith("#") or "=" not in line:
+                            continue
+                        key, val = line.split("=", 1)
+                        key = key.strip()
+                        val = val.strip().strip('"').strip("'")
+                        os.environ[key] = val
+                # Track loaded keys for display (masked)
+                for key in ("EUNOIA_USE_AGNO", "HF_TOKEN", "EUNOIA_ENABLE_MODELS"):
+                    if key in os.environ:
+                        loaded[key] = _mask_value(os.environ.get(key, ""))
+                print(f"   • Loaded {env_path.relative_to(project_root)}")
+        except Exception as e:
+            print(f"⚠️  Could not load {env_path.name}: {e}")
+
+    if loaded:
+        print("✅ Environment loaded:")
+        for k, v in loaded.items():
+            print(f"   - {k}={v}")
+    else:
+        print("ℹ️  No .env files found or no relevant keys present.")
+
+    return loaded
 
 def install_backend_dependencies():
     """Install Python backend dependencies"""
@@ -228,10 +290,11 @@ def start_backend():
     
     try:
         # Start the backend server
+        env = os.environ.copy()
         backend_process = subprocess.Popen([
             sys.executable, "-c", 
             "import uvicorn; from main import app; uvicorn.run(app, host='0.0.0.0', port=8000, log_level='info')"
-        ], cwd=backend_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        ], cwd=backend_dir, env=env)
         
         # Wait a moment and check if it started successfully
         time.sleep(5)
@@ -287,8 +350,8 @@ def start_frontend():
             cwd=frontend_dir, 
             shell=True,
             env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            stdout=None,
+            stderr=None
         )
         
         # Wait a moment and check if it started successfully
@@ -361,6 +424,9 @@ def main():
     # Print banner
     print_banner()
     
+    # Load environment variables early so child processes inherit them
+    load_env_files()
+
     # Check dependencies
     if not check_dependencies():
         print("\n❌ Dependency check failed. Please install required dependencies.")

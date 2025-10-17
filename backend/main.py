@@ -1,20 +1,50 @@
-from fastapi import FastAPI, HTTPException, Depends, Query, status
+from fastapi import FastAPI, HTTPException, Depends, Query, status, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, Text, and_, or_, desc, asc
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, Text, JSON, and_, or_, desc, asc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from pydantic import BaseModel, Field, validator
 from datetime import datetime, date, timedelta
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 import os
 import json
 import re
-from ml_service import analyze_journal_entry
+from dotenv import load_dotenv
+from hybrid_ml_service import analyze_journal_entry, hybrid_service
+from supabase_auth_service import get_current_user, require_auth
+from pathlib import Path
+from error_handler import (
+    ErrorHandler, ErrorFactory, ErrorCode, ErrorSeverity, 
+    handle_errors, error_handler, error_factory
+)
 
 # Database setup
-SQLALCHEMY_DATABASE_URL = "sqlite:///./eunoia_journal.db"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv()
+
+# Supabase PostgreSQL connection
+SUPABASE_URL = os.environ.get('SUPABASE_URL')
+SUPABASE_DB_PASSWORD = os.environ.get('SUPABASE_DB_PASSWORD', 'your-db-password')
+SUPABASE_DB_HOST = os.environ.get('SUPABASE_DB_HOST', 'db.wglvjoncodlrvkgleyvv.supabase.co')
+SUPABASE_DB_PORT = os.environ.get('SUPABASE_DB_PORT', '5432')
+SUPABASE_DB_NAME = os.environ.get('SUPABASE_DB_NAME', 'postgres')
+
+# Construct PostgreSQL connection string
+SQLALCHEMY_DATABASE_URL = f"postgresql://postgres:{SUPABASE_DB_PASSWORD}@{SUPABASE_DB_HOST}:{SUPABASE_DB_PORT}/{SUPABASE_DB_NAME}"
+
+# Fallback to SQLite if Supabase credentials not available
+if not SUPABASE_URL or not SUPABASE_DB_PASSWORD:
+    print("WARNING: Supabase database credentials not found. Falling back to SQLite.")
+    BASE_DIR = Path(__file__).resolve().parent
+    DB_PATH = (BASE_DIR / "eunoia_journal.db").as_posix()
+    SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
+    engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+else:
+    print("Using Supabase PostgreSQL database")
+    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -23,17 +53,32 @@ class JournalEntry(Base):
     __tablename__ = "journal_entries"
     
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String(255), nullable=False, index=True)  # Supabase user ID
     date = Column(DateTime, default=datetime.utcnow, index=True)
     content = Column(Text, nullable=False)
     sentiment_score = Column(Float, nullable=True, index=True)
     emotion = Column(String(50), nullable=True, index=True)
     emotion_confidence = Column(Float, nullable=True)
-    emotions_detected = Column(Text, nullable=True)  # JSON string for multiple emotions
+    emotions_detected = Column(JSON, nullable=True)  # JSONB for multiple emotions
     emotion_group = Column(String(20), nullable=True, index=True)
     stress_level = Column(Float, nullable=True, index=True)
     word_count = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class UserProfile(Base):
+    __tablename__ = "user_profiles"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String(255), nullable=False, unique=True, index=True)  # Supabase user ID
+    email = Column(String(255), nullable=False, index=True)
+    full_name = Column(String(255), nullable=True)
+    display_name = Column(String(50), nullable=True, index=True)  # User-friendly display name
+    role = Column(String(50), nullable=False, default="user", index=True)  # user, admin, moderator
+    is_active = Column(String(10), nullable=False, default="true", index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_login = Column(DateTime, nullable=True)
 
 # Pydantic models
 class JournalEntryCreate(BaseModel):
@@ -82,12 +127,12 @@ class JournalEntryResponse(BaseModel):
     sentiment_score: Optional[float]
     emotion: Optional[str]
     emotion_confidence: Optional[float]
-    emotions_detected: Optional[str]  # JSON string
+    emotions_detected: Optional[List[Tuple[str, float]]]  # List of [emotion, confidence] tuples
     emotion_group: Optional[str]
     stress_level: Optional[float]
     word_count: Optional[int]
     created_at: datetime
-    updated_at: datetime
+    updated_at: Optional[datetime]
 
     class Config:
         from_attributes = True
@@ -96,12 +141,12 @@ class JournalEntryResponse(BaseModel):
                 "id": 1,
                 "date": "2024-01-15T10:30:00",
                 "content": "Today was a great day! I finished my project and felt really accomplished.",
-                "sentiment_score": 0.8,
+                "sentiment_score": 8.0,
                 "emotion": "joy",
                 "emotion_confidence": 0.92,
-                "emotions_detected": "[['joy', 0.92], ['excitement', 0.15]]",
+                "emotions_detected": [["joy", 0.92], ["excitement", 0.15]],
                 "emotion_group": "positive",
-                "stress_level": 0.1,
+                "stress_level": 1.0,
                 "word_count": 18,
                 "created_at": "2024-01-15T10:30:00",
                 "updated_at": "2024-01-15T10:30:00"
@@ -117,14 +162,58 @@ class JournalEntrySearch(BaseModel):
     query: Optional[str] = Field(None, description="Search query for content")
     emotion: Optional[str] = Field(None, description="Filter by emotion")
     emotion_group: Optional[str] = Field(None, description="Filter by emotion group (positive/negative/neutral)")
-    min_sentiment: Optional[float] = Field(None, ge=-1.0, le=1.0, description="Minimum sentiment score")
-    max_sentiment: Optional[float] = Field(None, ge=-1.0, le=1.0, description="Maximum sentiment score")
-    min_stress: Optional[float] = Field(None, ge=0.0, le=1.0, description="Minimum stress level")
-    max_stress: Optional[float] = Field(None, ge=0.0, le=1.0, description="Maximum stress level")
+    min_sentiment: Optional[float] = Field(None, ge=0.0, le=10.0, description="Minimum sentiment score")
+    max_sentiment: Optional[float] = Field(None, ge=0.0, le=10.0, description="Maximum sentiment score")
+    min_stress: Optional[float] = Field(None, ge=0.0, le=10.0, description="Minimum stress level")
+    max_stress: Optional[float] = Field(None, ge=0.0, le=10.0, description="Maximum stress level")
     start_date: Optional[datetime] = Field(None, description="Start date filter")
     end_date: Optional[datetime] = Field(None, description="End date filter")
     min_word_count: Optional[int] = Field(None, ge=0, description="Minimum word count")
     max_word_count: Optional[int] = Field(None, ge=0, description="Maximum word count")
+
+# User management models
+class UserProfileResponse(BaseModel):
+    id: int
+    user_id: str
+    email: str
+    full_name: Optional[str]
+    display_name: Optional[str]
+    role: str
+    is_active: str
+    created_at: datetime
+    updated_at: Optional[datetime]
+    last_login: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+class UserProfileUpdate(BaseModel):
+    full_name: Optional[str] = Field(None, description="Updated full name")
+    display_name: Optional[str] = Field(None, description="Updated display name/username")
+    role: Optional[str] = Field(None, description="Updated role (user, admin, moderator)")
+    is_active: Optional[str] = Field(None, description="Updated active status (true/false)")
+
+class UserProfileCreate(BaseModel):
+    email: str = Field(..., description="User email")
+    full_name: Optional[str] = Field(None, description="User full name")
+    display_name: str = Field(..., min_length=2, max_length=50, description="Display name/username")
+    role: str = Field("user", description="User role (user, admin, moderator)")
+
+class UserCreate(BaseModel):
+    email: str = Field(..., description="User email")
+    password: str = Field(..., min_length=6, description="User password")
+    full_name: Optional[str] = Field(None, description="User full name")
+    role: str = Field("user", description="User role (user, admin, moderator)")
+
+class AdminStats(BaseModel):
+    total_users: int
+    active_users: int
+    total_entries: int
+    entries_today: int
+    entries_this_week: int
+    entries_this_month: int
+    most_active_users: List[Dict[str, Any]]
+    recent_signups: List[UserProfileResponse]
 
 class PaginatedResponse(BaseModel):
     entries: List[JournalEntryResponse]
@@ -141,7 +230,12 @@ app = FastAPI(title="Eunoia Journal API", version="1.0.0")
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # React dev server
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost",
+        "http://127.0.0.1",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -155,6 +249,55 @@ def get_db():
     finally:
         db.close()
 
+# Authentication dependency
+def get_current_user_dependency(authorization: str = Header(None)) -> Dict[str, Any]:
+    """
+    FastAPI dependency to get current authenticated user
+    """
+    if not authorization:
+        context = error_handler.create_error_context(endpoint="authentication")
+        error = error_factory.authentication_error(
+            message="Authorization header required",
+            context=context
+        )
+        raise error_handler.create_http_exception(error, status.HTTP_401_UNAUTHORIZED)
+    
+    # Extract token from "Bearer <token>" format
+    if not authorization.startswith("Bearer "):
+        context = error_handler.create_error_context(endpoint="authentication")
+        error = error_factory.authentication_error(
+            message="Invalid authorization header format",
+            context=context
+        )
+        raise error_handler.create_http_exception(error, status.HTTP_401_UNAUTHORIZED)
+    
+    token = authorization[7:]  # Remove "Bearer " prefix
+    
+    try:
+        return require_auth(token)
+    except HTTPException as e:
+        # Re-raise HTTP exceptions as-is
+        raise e
+    except Exception as e:
+        context = error_handler.create_error_context(endpoint="authentication")
+        error = error_factory.authentication_error(
+            message="Authentication failed",
+            detail=str(e),
+            context=context,
+            original_exception=e
+        )
+        raise error_handler.create_http_exception(error, status.HTTP_401_UNAUTHORIZED)
+
+# Optional authentication dependency (for backward compatibility)
+def get_current_user_optional(authorization: str = Header(None)) -> Optional[Dict[str, Any]]:
+    """
+    Optional authentication dependency for endpoints that work with or without auth
+    """
+    if not authorization:
+        return None
+    
+    return get_current_user(authorization)
+
 # Create tables
 Base.metadata.create_all(bind=engine)
 
@@ -164,7 +307,11 @@ async def root():
     return {"message": "Eunoia Journal API is running!"}
 
 @app.post("/entries/", response_model=JournalEntryResponse, status_code=status.HTTP_201_CREATED)
-async def create_entry(entry: JournalEntryCreate, db: Session = Depends(get_db)):
+async def create_entry(
+    entry: JournalEntryCreate, 
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user_dependency)
+):
     """
     Create a new journal entry with AI analysis.
     
@@ -172,18 +319,45 @@ async def create_entry(entry: JournalEntryCreate, db: Session = Depends(get_db))
     - **date**: Optional date for the entry (defaults to current time)
     
     Returns the created entry with sentiment analysis, emotion detection, and stress level.
+    Requires authentication.
     """
+    context = error_handler.create_error_context(
+        user_id=current_user.get("id"),
+        endpoint="create_entry"
+    )
+    
     try:
         # Analyze the journal entry using ML models
-        analysis = analyze_journal_entry(entry.content)
+        try:
+            analysis = analyze_journal_entry(entry.content)
+        except Exception as ml_error:
+            # ML analysis failed, but we can still save the entry
+            context.additional_data = {"ml_error": str(ml_error)}
+            error = error_factory.ml_service_error(
+                message="AI analysis failed, but entry will be saved",
+                detail=str(ml_error),
+                context=context,
+                original_exception=ml_error
+            )
+            error_handler.log_error(error)
+            # Continue with fallback analysis
+            analysis = {
+                "sentiment_score": 5.0,
+                "emotion": "neutral",
+                "emotion_confidence": 0.5,
+                "emotions_detected": [],
+                "emotion_group": "neutral",
+                "stress_level": 3.0
+            }
         
         # Calculate word count
         word_count = len(entry.content.split())
         
-        # Prepare emotions_detected as JSON string
-        emotions_detected = json.dumps(analysis.get("emotions_detected", []))
+        # Get emotions_detected as list (already structured from ML service)
+        emotions_detected = analysis.get("emotions_detected", [])
         
         db_entry = JournalEntry(
+            user_id=current_user["id"],  # Associate with authenticated user
             content=entry.content,
             date=entry.date or datetime.utcnow(),
             sentiment_score=analysis["sentiment_score"],
@@ -203,10 +377,13 @@ async def create_entry(entry: JournalEntryCreate, db: Session = Depends(get_db))
         
     except Exception as e:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create journal entry: {str(e)}"
+        error = error_factory.database_error(
+            message="Failed to create journal entry",
+            detail=str(e),
+            context=context,
+            original_exception=e
         )
+        raise error_handler.create_http_exception(error, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @app.get("/entries/", response_model=PaginatedResponse)
 async def get_entries(
@@ -215,15 +392,16 @@ async def get_entries(
     search: Optional[str] = Query(None, description="Search in content"),
     emotion: Optional[str] = Query(None, description="Filter by emotion"),
     emotion_group: Optional[str] = Query(None, description="Filter by emotion group"),
-    min_sentiment: Optional[float] = Query(None, ge=-1.0, le=1.0, description="Minimum sentiment score"),
-    max_sentiment: Optional[float] = Query(None, ge=-1.0, le=1.0, description="Maximum sentiment score"),
-    min_stress: Optional[float] = Query(None, ge=0.0, le=1.0, description="Minimum stress level"),
-    max_stress: Optional[float] = Query(None, ge=0.0, le=1.0, description="Maximum stress level"),
+    min_sentiment: Optional[float] = Query(None, ge=0.0, le=10.0, description="Minimum sentiment score"),
+    max_sentiment: Optional[float] = Query(None, ge=0.0, le=10.0, description="Maximum sentiment score"),
+    min_stress: Optional[float] = Query(None, ge=0.0, le=10.0, description="Minimum stress level"),
+    max_stress: Optional[float] = Query(None, ge=0.0, le=10.0, description="Maximum stress level"),
     start_date: Optional[datetime] = Query(None, description="Start date filter"),
     end_date: Optional[datetime] = Query(None, description="End date filter"),
     sort_by: str = Query("created_at", description="Sort field (created_at, date, sentiment_score, stress_level)"),
     sort_order: str = Query("desc", description="Sort order (asc, desc)"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user_dependency)
 ):
     """
     Get journal entries with pagination, search, and filtering.
@@ -239,9 +417,31 @@ async def get_entries(
     - **sort_by**: Sort field (created_at, date, sentiment_score, stress_level)
     - **sort_order**: Sort order (asc, desc)
     """
+    context = error_handler.create_error_context(
+        user_id=current_user.get("id"),
+        endpoint="get_entries",
+        additional_data={
+            "page": page,
+            "per_page": per_page,
+            "filters": {
+                "search": search,
+                "emotion": emotion,
+                "emotion_group": emotion_group,
+                "min_sentiment": min_sentiment,
+                "max_sentiment": max_sentiment,
+                "min_stress": min_stress,
+                "max_stress": max_stress,
+                "start_date": start_date.isoformat() if start_date else None,
+                "end_date": end_date.isoformat() if end_date else None,
+                "sort_by": sort_by,
+                "sort_order": sort_order
+            }
+        }
+    )
+    
     try:
-        # Build query
-        query = db.query(JournalEntry)
+        # Build query - filter by current user
+        query = db.query(JournalEntry).filter(JournalEntry.user_id == current_user["id"])
         
         # Apply filters
         if search:
@@ -284,6 +484,14 @@ async def get_entries(
         # Apply pagination
         offset = (page - 1) * per_page
         entries = query.offset(offset).limit(per_page).all()
+
+        # Backward compatibility: ensure updated_at is not None in responses
+        for e in entries:
+            if getattr(e, "updated_at", None) is None:
+                try:
+                    e.updated_at = e.created_at or datetime.utcnow()
+                except Exception:
+                    e.updated_at = datetime.utcnow()
         
         # Calculate pagination info
         total_pages = (total + per_page - 1) // per_page
@@ -301,17 +509,28 @@ async def get_entries(
         )
         
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve entries: {str(e)}"
+        error = error_factory.database_error(
+            message="Failed to retrieve journal entries",
+            detail=str(e),
+            context=context,
+            original_exception=e
         )
+        raise error_handler.create_http_exception(error, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @app.get("/entries/{entry_id}", response_model=JournalEntryResponse)
-async def get_entry(entry_id: int, db: Session = Depends(get_db)):
+async def get_entry(
+    entry_id: int, 
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user_dependency)
+):
     """
     Get a specific journal entry by ID.
+    Returns the entry only if it belongs to the authenticated user.
     """
-    entry = db.query(JournalEntry).filter(JournalEntry.id == entry_id).first()
+    entry = db.query(JournalEntry).filter(
+        JournalEntry.id == entry_id,
+        JournalEntry.user_id == current_user["id"]
+    ).first()
     if entry is None:
         raise HTTPException(status_code=404, detail="Entry not found")
     return entry
@@ -320,7 +539,8 @@ async def get_entry(entry_id: int, db: Session = Depends(get_db)):
 async def update_entry(
     entry_id: int, 
     entry_update: JournalEntryUpdate, 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user_dependency)
 ):
     """
     Update a journal entry.
@@ -330,10 +550,14 @@ async def update_entry(
     - **date**: Updated date (optional)
     
     If content is updated, the entry will be re-analyzed for sentiment and emotions.
+    Only the owner can update their entries.
     """
     try:
-        # Get existing entry
-        db_entry = db.query(JournalEntry).filter(JournalEntry.id == entry_id).first()
+        # Get existing entry - ensure it belongs to the user
+        db_entry = db.query(JournalEntry).filter(
+            JournalEntry.id == entry_id,
+            JournalEntry.user_id == current_user["id"]
+        ).first()
         if db_entry is None:
             raise HTTPException(status_code=404, detail="Entry not found")
         
@@ -347,7 +571,7 @@ async def update_entry(
         if "content" in update_data:
             analysis = analyze_journal_entry(update_data["content"])
             word_count = len(update_data["content"].split())
-            emotions_detected = json.dumps(analysis.get("emotions_detected", []))
+            emotions_detected = analysis.get("emotions_detected", [])
             
             # Update analysis fields
             db_entry.sentiment_score = analysis["sentiment_score"]
@@ -379,14 +603,22 @@ async def update_entry(
         )
 
 @app.delete("/entries/{entry_id}")
-async def delete_entry(entry_id: int, db: Session = Depends(get_db)):
+async def delete_entry(
+    entry_id: int, 
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user_dependency)
+):
     """
     Delete a journal entry.
     
     - **entry_id**: ID of the entry to delete
+    Only the owner can delete their entries.
     """
     try:
-        db_entry = db.query(JournalEntry).filter(JournalEntry.id == entry_id).first()
+        db_entry = db.query(JournalEntry).filter(
+            JournalEntry.id == entry_id,
+            JournalEntry.user_id == current_user["id"]
+        ).first()
         if db_entry is None:
             raise HTTPException(status_code=404, detail="Entry not found")
         
@@ -407,7 +639,8 @@ async def delete_entry(entry_id: int, db: Session = Depends(get_db)):
 @app.get("/analytics/sentiment-trends")
 async def get_sentiment_trends(
     days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user_dependency)
 ):
     """
     Get sentiment trends for the dashboard.
@@ -417,9 +650,12 @@ async def get_sentiment_trends(
     Returns daily sentiment, stress, and emotion trends with statistics.
     """
     try:
-        # Get entries from the last N days
+        # Get entries from the last N days for the current user
         start_date = datetime.utcnow() - timedelta(days=days)
-        entries = db.query(JournalEntry).filter(JournalEntry.date >= start_date).all()
+        entries = db.query(JournalEntry).filter(
+            JournalEntry.user_id == current_user["id"],
+            JournalEntry.date >= start_date
+        ).all()
         
         if not entries:
             return {
@@ -515,7 +751,8 @@ async def get_sentiment_trends(
 @app.get("/analytics/insights")
 async def get_insights(
     days: int = Query(7, ge=1, le=30, description="Number of days to analyze for insights"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user_dependency)
 ):
     """
     Get AI-generated insights and suggestions based on recent journal entries.
@@ -525,9 +762,12 @@ async def get_insights(
     Returns personalized insights, suggestions, and emotional patterns.
     """
     try:
-        # Get entries from the specified number of days
+        # Get entries from the specified number of days for the current user
         start_date = datetime.utcnow() - timedelta(days=days)
-        entries = db.query(JournalEntry).filter(JournalEntry.date >= start_date).all()
+        entries = db.query(JournalEntry).filter(
+            JournalEntry.user_id == current_user["id"],
+            JournalEntry.date >= start_date
+        ).all()
         
         if not entries:
             return {
@@ -565,20 +805,20 @@ async def get_insights(
         patterns = {}
         recommendations = []
         
-        # Sentiment-based insights
-        if avg_sentiment > 0.3:
-            insights.append("Your recent entries show a positive outlook! 🌟")
+        # Sentiment-based insights (0-10 scale)
+        if avg_sentiment > 7:
+            insights.append("Your recent entries show a positive outlook!")
             patterns["sentiment_trend"] = "positive"
-        elif avg_sentiment < -0.3:
-            insights.append("Your recent entries suggest you might be going through a challenging time. 💙")
+        elif avg_sentiment < 3:
+            insights.append("Your recent entries suggest you might be going through a challenging time.")
             suggestions.append("Consider talking to a trusted friend or counselor about your feelings.")
             patterns["sentiment_trend"] = "negative"
         else:
-            insights.append("Your mood has been relatively stable recently. 📊")
+            insights.append("Your mood has been relatively stable recently.")
             patterns["sentiment_trend"] = "neutral"
         
-        # Stress-based insights
-        if avg_stress > 0.7:
+        # Stress-based insights (0-10 scale)
+        if avg_stress > 7:
             insights.append("Your entries indicate high stress levels lately. 😰")
             suggestions.extend([
                 "Try the 4-7-8 breathing technique: inhale for 4, hold for 7, exhale for 8.",
@@ -587,32 +827,32 @@ async def get_insights(
             ])
             patterns["stress_level"] = "high"
             recommendations.append("Consider stress management techniques or professional support")
-        elif avg_stress > 0.4:
-            insights.append("You're experiencing moderate stress levels. ⚖️")
+        elif avg_stress > 4:
+            insights.append("You're experiencing moderate stress levels.")
             suggestions.append("Try some light exercise or a short walk to help manage stress.")
             patterns["stress_level"] = "moderate"
         else:
-            insights.append("Your stress levels appear manageable. 😌")
+            insights.append("Your stress levels appear manageable.")
             patterns["stress_level"] = "low"
         
         # Emotion-based insights
         if most_common_group == "positive":
-            insights.append(f"You've been feeling {most_common_emotion} frequently - that's wonderful! 😊")
+            insights.append(f"You've been feeling {most_common_emotion} frequently - that's wonderful!")
             patterns["emotion_dominance"] = "positive"
         elif most_common_group == "negative":
-            insights.append(f"You've been experiencing {most_common_emotion} often. It's okay to feel this way. 💙")
+            insights.append(f"You've been experiencing {most_common_emotion} often. It's okay to feel this way.")
             suggestions.append("Consider activities that bring you joy or relaxation.")
             patterns["emotion_dominance"] = "negative"
         else:
-            insights.append("Your emotional state has been relatively balanced. ⚖️")
+            insights.append("Your emotional state has been relatively balanced.")
             patterns["emotion_dominance"] = "neutral"
         
         # Writing pattern insights
         if avg_word_count > 100:
-            insights.append("You write detailed entries - this shows great self-reflection! 📝")
+            insights.append("You write detailed entries - this shows great self-reflection!")
             patterns["writing_style"] = "detailed"
         elif avg_word_count > 50:
-            insights.append("You maintain a good balance in your journaling. 👍")
+            insights.append("You maintain a good balance in your journaling.")
             patterns["writing_style"] = "moderate"
         else:
             suggestions.append("Try expanding on your thoughts - more detail can help with self-reflection.")
@@ -620,10 +860,10 @@ async def get_insights(
         
         # Entry frequency insights
         if len(entries) >= days * 0.8:  # 80% of days
-            insights.append(f"Excellent journaling consistency! You've written {len(entries)} entries in {days} days. 📝")
+            insights.append(f"Excellent journaling consistency! You've written {len(entries)} entries in {days} days.")
             patterns["consistency"] = "excellent"
         elif len(entries) >= days * 0.5:  # 50% of days
-            insights.append("Good journaling routine! Keep up the momentum. 💪")
+            insights.append("Good journaling routine! Keep up the momentum.")
             patterns["consistency"] = "good"
         elif len(entries) >= days * 0.2:  # 20% of days
             insights.append("You're building a journaling habit. Every entry counts! 🌱")
@@ -665,15 +905,18 @@ async def get_insights(
         )
 
 @app.get("/analytics/stats")
-async def get_stats(db: Session = Depends(get_db)):
+async def get_stats(
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user_dependency)
+):
     """
     Get overall statistics about journal entries.
     
     Returns comprehensive statistics including total entries, date ranges, and emotion distributions.
     """
     try:
-        # Get all entries
-        all_entries = db.query(JournalEntry).all()
+        # Get all entries for the current user
+        all_entries = db.query(JournalEntry).filter(JournalEntry.user_id == current_user["id"]).all()
         
         if not all_entries:
             return {
@@ -738,6 +981,126 @@ async def get_stats(db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve statistics: {str(e)}"
+        )
+
+@app.get("/ai/methods")
+async def get_ai_methods():
+    """
+    Get information about available AI analysis methods.
+    
+    Returns information about which AI frameworks are available and currently active.
+    """
+    return hybrid_service.get_available_methods()
+
+@app.post("/ai/analyze/agno")
+async def analyze_with_agno(entry: JournalEntryCreate):
+    """
+    Analyze a journal entry using Agno framework specifically.
+    
+    - **content**: The journal entry text (required)
+    - **date**: Optional date for the entry (defaults to current time)
+    
+    Returns the analysis results using Agno framework with HuggingFace models.
+    """
+    try:
+        analysis = hybrid_service.analyze_with_agno(entry.content)
+        return {
+            "analysis": analysis,
+            "entry_content": entry.content,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Agno analysis failed: {str(e)}"
+        )
+
+@app.post("/ai/analyze/original")
+async def analyze_with_original(entry: JournalEntryCreate):
+    """
+    Analyze a journal entry using the original implementation.
+    
+    - **content**: The journal entry text (required)
+    - **date**: Optional date for the entry (defaults to current time)
+    
+    Returns the analysis results using the original ML implementation.
+    """
+    try:
+        analysis = hybrid_service.analyze_with_original(entry.content)
+        return {
+            "analysis": analysis,
+            "entry_content": entry.content,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Original analysis failed: {str(e)}"
+        )
+
+# User Profile Management Endpoints
+@app.get("/profile", response_model=UserProfileResponse)
+async def get_user_profile(
+    current_user: Dict[str, Any] = Depends(get_current_user_dependency),
+    db: Session = Depends(get_db)
+):
+    """
+    Get current user's profile information.
+    """
+    try:
+        profile = db.query(UserProfile).filter(UserProfile.user_id == current_user["id"]).first()
+        if not profile:
+            # Create profile if it doesn't exist
+            profile = UserProfile(
+                user_id=current_user["id"],
+                email=current_user["email"],
+                full_name=current_user.get("user_metadata", {}).get("full_name"),
+                display_name=current_user.get("user_metadata", {}).get("display_name"),
+                role="user"
+            )
+            db.add(profile)
+            db.commit()
+            db.refresh(profile)
+        
+        return profile
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get user profile: {str(e)}"
+        )
+
+@app.put("/profile", response_model=UserProfileResponse)
+async def update_user_profile(
+    profile_update: UserProfileUpdate,
+    current_user: Dict[str, Any] = Depends(get_current_user_dependency),
+    db: Session = Depends(get_db)
+):
+    """
+    Update current user's profile information.
+    """
+    try:
+        profile = db.query(UserProfile).filter(UserProfile.user_id == current_user["id"]).first()
+        if not profile:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        
+        # Update fields if provided
+        update_data = profile_update.dict(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(profile, field, value)
+        
+        profile.updated_at = datetime.utcnow()
+        
+        db.commit()
+        db.refresh(profile)
+        
+        return profile
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update profile: {str(e)}"
         )
 
 @app.get("/health")

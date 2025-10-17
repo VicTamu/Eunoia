@@ -24,6 +24,7 @@ An AI-powered journaling web application that analyzes your daily entries for se
 - Node.js (v16 or higher)
 - Python 3.8 or higher
 - pip (Python package manager)
+- HuggingFace account and API token (for AI features)
 
 ### Installation
 
@@ -33,7 +34,16 @@ An AI-powered journaling web application that analyzes your daily entries for se
    cd Eunoia
    ```
 
-2. **Set up the Backend**
+2. **Set up Environment Variables**
+   ```bash
+   # Create .env file in project root
+   cp .env.example .env
+   # Edit .env and add your HuggingFace token
+   ```
+   
+   Get your HuggingFace token from: https://huggingface.co/settings/tokens
+
+3. **Set up the Backend**
    ```bash
    cd backend
    pip install -r requirements.txt
@@ -41,7 +51,7 @@ An AI-powered journaling web application that analyzes your daily entries for se
    ```
    The API will be available at `http://localhost:8000`
 
-3. **Set up the Frontend** (in a new terminal)
+4. **Set up the Frontend** (in a new terminal)
    ```bash
    cd frontend
    npm install

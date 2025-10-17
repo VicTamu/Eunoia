@@ -5,10 +5,12 @@ export interface JournalEntry {
   sentiment_score: number | null;
   emotion: string | null;
   emotion_confidence?: number | null;
-  emotions_detected?: [string, number][];
+  emotions_detected?: Array<[string, number]>; // List of [emotion, confidence] tuples
   emotion_group?: string | null;
   stress_level: number | null;
+  word_count?: number | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface JournalEntryCreate {

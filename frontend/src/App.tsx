@@ -1,26 +1,53 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { BookOpen, BarChart3, Home, RefreshCw } from 'lucide-react';
 import JournalEntry from './components/JournalEntry';
 import Dashboard from './components/Dashboard';
 import RecentEntries from './components/RecentEntries';
+import ProfileDropdown from './components/Profile/ProfileDropdown';
 import { JournalEntry as JournalEntryType } from './types';
+import { useAuth } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
+import LoginForm from './components/Auth/LoginForm';
+import SignupForm from './components/Auth/SignupForm';
+import { auth } from './lib/supabase';
 import './App.css';
 
 type TabType = 'write' | 'dashboard' | 'entries';
+type AuthMode = 'login' | 'signup';
 
 function App() {
+  const { user, loading, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('write');
   const [entries, setEntries] = useState<JournalEntryType[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [authMode, setAuthMode] = useState<AuthMode>('login');
 
   const handleEntrySaved = (newEntry: JournalEntryType) => {
-    setEntries(prev => [newEntry, ...prev]);
+    setEntries((prev) => [newEntry, ...prev]);
     // Refresh dashboard data
-    setRefreshKey(prev => prev + 1);
+    setRefreshKey((prev) => prev + 1);
   };
 
   const handleRefresh = () => {
-    setRefreshKey(prev => prev + 1);
+    setRefreshKey((prev) => prev + 1);
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      setEntries([]);
+      setRefreshKey(0);
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  const handleForceRefresh = async () => {
+    try {
+      await auth.forceRefresh();
+    } catch (error) {
+      console.error('Error force refreshing:', error);
+    }
   };
 
   const tabs = [
@@ -29,8 +56,48 @@ function App() {
     { id: 'entries' as TabType, label: 'Entries', icon: Home },
   ];
 
+  // Show loading spinner while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show authentication forms if not logged in
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <BookOpen className="h-8 w-8 text-white" />
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900">Eunoia Journal</h2>
+            <p className="mt-2 text-sm text-gray-600">
+              {authMode === 'login' ? 'Sign in to your account' : 'Create your account'}
+            </p>
+          </div>
+          
+          <div className="bg-white py-8 px-6 shadow rounded-lg">
+            {authMode === 'login' ? (
+              <LoginForm onToggleMode={() => setAuthMode('signup')} />
+            ) : (
+              <SignupForm onToggleMode={() => setAuthMode('login')} />
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <ThemeProvider>
+      <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -41,13 +108,23 @@ function App() {
               </div>
               <h1 className="text-xl font-bold text-gray-900">Eunoia Journal</h1>
             </div>
-            <button
-              onClick={handleRefresh}
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-              title="Refresh data"
-            >
-              <RefreshCw className="h-5 w-5" />
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleRefresh}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                title="Refresh data"
+              >
+                <RefreshCw className="h-5 w-5" />
+              </button>
+              <button
+                onClick={handleForceRefresh}
+                className="px-3 py-1 text-xs bg-yellow-500 text-white hover:bg-yellow-600 rounded-md transition-colors"
+                title="Force refresh auth (debug)"
+              >
+                Force Auth
+              </button>
+              <ProfileDropdown onSignOut={handleSignOut} />
+            </div>
           </div>
         </div>
       </header>
@@ -112,7 +189,8 @@ function App() {
           </div>
         </div>
       </footer>
-    </div>
+      </div>
+    </ThemeProvider>
   );
 }
 

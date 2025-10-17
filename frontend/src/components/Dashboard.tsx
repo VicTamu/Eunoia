@@ -3,20 +3,26 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { TrendingUp, Brain, Heart, Calendar, AlertCircle } from 'lucide-react';
 import { journalApi } from '../services/api';
 import { SentimentTrend, Insight } from '../types';
+import { useDataErrorHandler } from '../hooks/useErrorHandler';
+import { useAuth } from '../contexts/AuthContext';
 
 const Dashboard: React.FC = () => {
   const [trends, setTrends] = useState<SentimentTrend[]>([]);
   const [insights, setInsights] = useState<Insight | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { user, session, loading } = useAuth();
+  const { error, isLoading, handleAsync, retry, lastRetryFn } = useDataErrorHandler({
+    component: 'Dashboard',
+  });
 
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    // Only load data when user is authenticated and session is available
+    if (user && session && !loading) {
+      loadDashboardData();
+    }
+  }, [user, session, loading]);
 
   const loadDashboardData = async () => {
-    try {
-      setLoading(true);
+    const result = await handleAsync(async () => {
       const [trendsData, insightsData] = await Promise.all([
         journalApi.getSentimentTrends(14), // Last 14 days
         journalApi.getInsights()
@@ -24,12 +30,10 @@ const Dashboard: React.FC = () => {
       
       setTrends(trendsData.trends);
       setInsights(insightsData);
-    } catch (err) {
-      console.error('Error loading dashboard data:', err);
-      setError('Failed to load dashboard data. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    }, {
+      component: 'Dashboard',
+      action: 'load_dashboard_data'
+    });
   };
 
   const formatDate = (dateString: string) => {
@@ -40,18 +44,19 @@ const Dashboard: React.FC = () => {
   };
 
   const getSentimentColor = (score: number) => {
-    if (score > 0.3) return '#10B981'; // Green
-    if (score < -0.3) return '#EF4444'; // Red
+    if (score > 7) return '#10B981'; // Green
+    if (score < 3) return '#EF4444'; // Red
     return '#6B7280'; // Gray
   };
 
   const getStressColor = (level: number) => {
-    if (level > 0.7) return '#EF4444'; // Red
-    if (level > 0.4) return '#F59E0B'; // Yellow
+    if (level > 7) return '#EF4444'; // Red
+    if (level > 4) return '#F59E0B'; // Yellow
     return '#10B981'; // Green
   };
 
-  if (loading) {
+  // Show loading if auth is still loading or data is loading
+  if (loading || isLoading) {
     return (
       <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="flex items-center justify-center h-64">
@@ -66,7 +71,13 @@ const Dashboard: React.FC = () => {
       <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="text-center text-red-600">
           <AlertCircle className="h-8 w-8 mx-auto mb-2" />
-          <p>{error}</p>
+          <p className="mb-4">{error.userMessage || error.message}</p>
+          <button
+            onClick={retry}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
@@ -136,7 +147,7 @@ const Dashboard: React.FC = () => {
                 tick={{ fontSize: 12 }}
               />
               <YAxis 
-                domain={[-1, 1]}
+                domain={[0, 10]}
                 tick={{ fontSize: 12 }}
               />
               <Tooltip 
@@ -173,13 +184,13 @@ const Dashboard: React.FC = () => {
                 tick={{ fontSize: 12 }}
               />
               <YAxis 
-                domain={[0, 1]}
+                domain={[0, 10]}
                 tick={{ fontSize: 12 }}
               />
               <Tooltip 
                 labelFormatter={(value) => formatDate(value)}
                 formatter={(value: number) => [
-                  (value * 100).toFixed(0) + '%', 
+                  value.toFixed(1), 
                   'Stress Level'
                 ]}
               />

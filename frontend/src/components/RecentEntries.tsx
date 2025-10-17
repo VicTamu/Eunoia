@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpen, Calendar, Heart, Brain, AlertTriangle } from 'lucide-react';
 import { journalApi } from '../services/api';
 import { JournalEntry } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 interface RecentEntriesProps {
   newEntries?: JournalEntry[];
@@ -11,6 +12,7 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
   const [fetchedEntries, setFetchedEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { user, session, loading: authLoading } = useAuth();
 
   // Placeholder sample entries shown when there is no data yet
   const SAMPLE_ENTRIES: JournalEntry[] = useMemo(() => {
@@ -26,6 +28,7 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
         id: -1,
         date: iso(daysAgo(0)),
         created_at: iso(daysAgo(0)),
+        updated_at: iso(daysAgo(0)),
         content: 'Took a long walk today and felt surprisingly relaxed. Grateful for the sunshine.',
         sentiment_score: 0.6,
         emotion: 'joy',
@@ -35,6 +38,7 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
         id: -2,
         date: iso(daysAgo(1)),
         created_at: iso(daysAgo(1)),
+        updated_at: iso(daysAgo(1)),
         content: 'Work was hectic with tight deadlines, but I managed to complete the tasks.',
         sentiment_score: 0.1,
         emotion: 'nervousness',
@@ -44,6 +48,7 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
         id: -3,
         date: iso(daysAgo(2)),
         created_at: iso(daysAgo(2)),
+        updated_at: iso(daysAgo(2)),
         content: 'Felt a bit down earlier, but a chat with a friend helped a lot.',
         sentiment_score: -0.1,
         emotion: 'sadness',
@@ -53,17 +58,24 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
   }, []);
 
   useEffect(() => {
-    loadEntries();
-  }, []);
+    // Only load data when user is authenticated and session is available
+    if (user && session && !authLoading) {
+      loadEntries();
+    }
+  }, [user, session, authLoading]);
 
   const loadEntries = async () => {
     try {
       setLoading(true);
+      setError(''); // Clear any previous errors
+      console.log('Loading entries...');
       const data = await journalApi.getEntries(1, 10); // Page 1, 10 per page
+      console.log('Loaded entries:', data);
       setFetchedEntries(data);
     } catch (err) {
       console.error('Error loading entries:', err);
-      setError('Failed to load recent entries.');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load recent entries.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -71,17 +83,29 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
 
   // Combine newly created entries (optimistic) with fetched ones, avoiding duplicates
   const displayEntries = useMemo(() => {
-    if ((!newEntries || newEntries.length === 0) && fetchedEntries.length === 0) {
-      return SAMPLE_ENTRIES;
+    // If there's an error, don't show sample data - show the error
+    if (error) return [];
+    
+    // If we have fetched entries, use them (with new entries if any)
+    if (fetchedEntries.length > 0) {
+      if (!newEntries || newEntries.length === 0) return fetchedEntries;
+      const newIds = new Set(newEntries.map(e => e.id));
+      const filteredFetched = fetchedEntries.filter(e => !newIds.has(e.id));
+      return [...newEntries, ...filteredFetched];
     }
-    if (!newEntries || newEntries.length === 0) return fetchedEntries;
-    const newIds = new Set(newEntries.map(e => e.id));
-    const filteredFetched = fetchedEntries.filter(e => !newIds.has(e.id));
-    return [...newEntries, ...filteredFetched];
-  }, [newEntries, fetchedEntries, SAMPLE_ENTRIES]);
+    
+    // If we have new entries but no fetched ones yet, show new entries
+    if (newEntries && newEntries.length > 0) return newEntries;
+    
+    // Only show sample data if we have no error, no fetched entries, and no new entries
+    return SAMPLE_ENTRIES;
+  }, [newEntries, fetchedEntries, SAMPLE_ENTRIES, error]);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'Unknown date';
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return 'Unknown date';
+    return d.toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
@@ -127,7 +151,8 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
     return 'text-green-600';
   };
 
-  if (loading) {
+  // Show loading if auth is still loading or data is loading
+  if (authLoading || loading) {
     return (
       <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="flex items-center justify-center h-32">
@@ -140,13 +165,32 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
   if (error) {
     return (
       <div className="bg-white rounded-lg shadow-lg p-6">
-        <div className="text-center text-red-600">
-          <AlertTriangle className="h-6 w-6 mx-auto mb-2" />
-          <p>{error}</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">Recent Entries</h2>
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">Error loading entries</h3>
+              <div className="mt-2 text-sm text-red-700">
+                <p>{error}</p>
+                <button 
+                  onClick={loadEntries}
+                  className="mt-2 text-red-600 hover:text-red-500 font-medium"
+                >
+                  Try again
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
+
 
   if (displayEntries.length === 0) {
     return (
@@ -182,10 +226,10 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
             </div>
 
             <p className="text-gray-800 mb-3 line-clamp-3">
-              {entry.content.length > 150 
-                ? `${entry.content.substring(0, 150)}...` 
-                : entry.content
-              }
+              {(() => {
+                const text = entry.content || '';
+                return text.length > 150 ? `${text.substring(0, 150)}...` : text;
+              })()}
             </p>
 
             <div className="flex items-center justify-between text-sm">
