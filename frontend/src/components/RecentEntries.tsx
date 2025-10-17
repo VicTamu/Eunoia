@@ -114,12 +114,6 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
     });
   };
 
-  const getSentimentEmoji = (score: number | null) => {
-    if (score === null) return '😐';
-    if (score > 0.3) return '😊';
-    if (score < -0.3) return '😔';
-    return '😐';
-  };
 
   const getEmotionEmoji = (emotion: string | null) => {
     const emotionMap: { [key: string]: string } = {
@@ -226,7 +220,6 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
                 <span>{formatDate(entry.date)}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-lg">{getSentimentEmoji(entry.sentiment_score)}</span>
                 <span className="text-lg">{getEmotionEmoji(entry.emotion)}</span>
               </div>
             </div>
