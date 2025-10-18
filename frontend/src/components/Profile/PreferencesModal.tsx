@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, Palette, Bell, Eye, Shield, Database, Moon, Sun, Zap } from 'lucide-react';
-import { useTheme } from '../../contexts/ThemeContext';
+import { X, Palette, Bell, Shield, Database, Moon, Sun } from 'lucide-react';
+import { useTheme, Theme } from '../../contexts/ThemeContext';
 
 interface PreferencesModalProps {
   onClose: () => void;
@@ -86,7 +86,7 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ onClose }) => {
                 return (
                   <button
                     key={option.value}
-                    onClick={() => setTheme(option.value as any)}
+                    onClick={() => setTheme(option.value as Theme)}
                     className={`p-4 rounded-lg border-2 transition-all text-left ${
                       theme === option.value
                         ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'

@@ -20,7 +20,7 @@ const Dashboard: React.FC = () => {
   const [trends, setTrends] = useState<SentimentTrend[]>([]);
   const [insights, setInsights] = useState<Insight | null>(null);
   const { user, session, loading } = useAuth();
-  const { error, isLoading, handleAsync, retry, lastRetryFn } = useDataErrorHandler({
+  const { error, isLoading, handleAsync, retry } = useDataErrorHandler({
     component: 'Dashboard',
   });
 
@@ -29,10 +29,10 @@ const Dashboard: React.FC = () => {
     if (user && session && !loading) {
       loadDashboardData();
     }
-  }, [user, session, loading]);
+  }, [user, session, loading, loadDashboardData]);
 
   const loadDashboardData = async () => {
-    const result = await handleAsync(
+    await handleAsync(
       async () => {
         const [trendsData, insightsData] = await Promise.all([
           journalApi.getSentimentTrends(14), // Last 14 days
@@ -56,13 +56,13 @@ const Dashboard: React.FC = () => {
     });
   };
 
-  const getSentimentColor = (score: number) => {
+  const _getSentimentColor = (score: number) => {
     if (score > 7) return '#10B981'; // Green
     if (score < 3) return '#EF4444'; // Red
     return '#6B7280'; // Gray
   };
 
-  const getStressColor = (level: number) => {
+  const _getStressColor = (level: number) => {
     if (level > 7) return '#EF4444'; // Red
     if (level > 4) return '#F59E0B'; // Yellow
     return '#10B981'; // Green

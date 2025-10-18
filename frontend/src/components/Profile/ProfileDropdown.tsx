@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Settings, Palette, LogOut, ChevronDown, Edit3, Shield } from 'lucide-react';
+import { Settings, Palette, LogOut, ChevronDown, Edit3, Shield } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import PreferencesModal from './PreferencesModal';
