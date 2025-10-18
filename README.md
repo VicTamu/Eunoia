@@ -14,7 +14,8 @@ An AI-powered journaling web application that analyzes your daily entries for se
 ### Tech Stack
 - **Frontend**: React + TypeScript + Tailwind CSS
 - **Backend**: FastAPI + Python
-- **Database**: SQLite
+- **Database**: Supabase PostgreSQL (with SQLite fallback)
+- **Authentication**: Supabase Auth
 - **AI/ML**: Hugging Face Transformers (sentiment analysis & emotion detection)
 - **Charts**: Recharts for data visualization
 
@@ -24,7 +25,8 @@ An AI-powered journaling web application that analyzes your daily entries for se
 - Node.js (v16 or higher)
 - Python 3.8 or higher
 - pip (Python package manager)
-- HuggingFace account and API token (for AI features)
+- Supabase account and project (for authentication and database)
+- HuggingFace account and API token (optional, for AI features)
 
 ### Installation
 
@@ -37,17 +39,18 @@ An AI-powered journaling web application that analyzes your daily entries for se
 2. **Set up Environment Variables**
    ```bash
    # Create .env file in project root
-   cp .env.example .env
-   # Edit .env and add your HuggingFace token
+   cp env.example .env
+   # Edit .env and add your Supabase and HuggingFace credentials
    ```
    
+   Get your Supabase credentials from: https://supabase.com/dashboard
    Get your HuggingFace token from: https://huggingface.co/settings/tokens
 
 3. **Set up the Backend**
    ```bash
    cd backend
    pip install -r requirements.txt
-   python start.py
+   python main.py
    ```
    The API will be available at `http://localhost:8000`
 
@@ -58,6 +61,21 @@ An AI-powered journaling web application that analyzes your daily entries for se
    npm start
    ```
    The app will be available at `http://localhost:3000`
+
+### 🚀 One-Click Startup (Windows)
+
+For Windows users, you can use the provided batch file for easy startup:
+
+```bash
+# Double-click START_EUNOIA.bat or run:
+START_EUNOIA.bat
+```
+
+This will automatically:
+- Check dependencies
+- Install required packages
+- Start both backend and frontend servers
+- Open the application in your browser
 
 ## 📱 Usage
 
@@ -90,17 +108,32 @@ The app uses pre-trained models to analyze:
 ```
 Eunoia/
 ├── backend/
-│   ├── main.py              # FastAPI application
-│   ├── ml_service.py        # AI/ML analysis service
-│   ├── requirements.txt     # Python dependencies
-│   └── start.py            # Backend startup script
+│   ├── main.py                    # FastAPI application
+│   ├── ml_service.py              # AI/ML analysis service
+│   ├── hybrid_ml_service.py       # Hybrid ML service
+│   ├── agno_ml_service.py         # Agno ML service
+│   ├── supabase_auth_service.py   # Supabase authentication
+│   ├── error_handler.py           # Error handling utilities
+│   ├── requirements.txt           # Python dependencies
+│   └── alembic/                   # Database migrations
 ├── frontend/
 │   ├── src/
-│   │   ├── components/     # React components
-│   │   ├── services/       # API service layer
-│   │   ├── types/          # TypeScript type definitions
-│   │   └── App.tsx         # Main React component
-│   └── package.json        # Node.js dependencies
+│   │   ├── components/            # React components
+│   │   │   ├── Auth/             # Authentication components
+│   │   │   ├── Profile/          # User profile components
+│   │   │   └── Admin/            # Admin dashboard
+│   │   ├── contexts/             # React contexts
+│   │   ├── hooks/                # Custom React hooks
+│   │   ├── services/             # API service layer
+│   │   ├── types/                # TypeScript type definitions
+│   │   └── utils/                # Utility functions
+│   ├── public/                   # Static assets
+│   ├── build/                    # Production build
+│   └── package.json              # Node.js dependencies
+├── start_eunoia.py               # Unified startup script
+├── START_EUNOIA.bat              # Windows batch file
+├── env.example                   # Environment template
+├── SUPABASE_SETUP.md             # Supabase setup guide
 └── README.md
 ```
 
