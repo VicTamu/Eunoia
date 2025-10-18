@@ -11,7 +11,13 @@ import os
 import json
 import re
 from dotenv import load_dotenv
-from hybrid_ml_service import analyze_journal_entry, hybrid_service
+# Try production ML service first, fallback to hybrid service
+try:
+    from production_ml_service import analyze_journal_entry, production_ml_service as ml_service
+    print("Using production ML service (HuggingFace API)")
+except ImportError:
+    from hybrid_ml_service import analyze_journal_entry, hybrid_service as ml_service
+    print("Using hybrid ML service (local models)")
 from supabase_auth_service import get_current_user, require_auth
 from pathlib import Path
 from error_handler import (
@@ -1011,20 +1017,20 @@ async def get_ai_methods():
     
     Returns information about which AI frameworks are available and currently active.
     """
-    return hybrid_service.get_available_methods()
+    return ml_service.get_available_methods()
 
-@app.post("/ai/analyze/agno")
-async def analyze_with_agno(entry: JournalEntryCreate):
+@app.post("/ai/analyze/huggingface")
+async def analyze_with_huggingface(entry: JournalEntryCreate):
     """
-    Analyze a journal entry using Agno framework specifically.
+    Analyze a journal entry using HuggingFace API.
     
     - **content**: The journal entry text (required)
     - **date**: Optional date for the entry (defaults to current time)
     
-    Returns the analysis results using Agno framework with HuggingFace models.
+    Returns the analysis results using HuggingFace Inference API.
     """
     try:
-        analysis = hybrid_service.analyze_with_agno(entry.content)
+        analysis = analyze_journal_entry(entry.content)
         return {
             "analysis": analysis,
             "entry_content": entry.content,
@@ -1033,21 +1039,22 @@ async def analyze_with_agno(entry: JournalEntryCreate):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Agno analysis failed: {str(e)}"
+            detail=f"HuggingFace analysis failed: {str(e)}"
         )
 
-@app.post("/ai/analyze/original")
-async def analyze_with_original(entry: JournalEntryCreate):
+@app.post("/ai/analyze/fallback")
+async def analyze_with_fallback(entry: JournalEntryCreate):
     """
-    Analyze a journal entry using the original implementation.
+    Analyze a journal entry using fallback method.
     
     - **content**: The journal entry text (required)
     - **date**: Optional date for the entry (defaults to current time)
     
-    Returns the analysis results using the original ML implementation.
+    Returns the analysis results using fallback implementation.
     """
     try:
-        analysis = hybrid_service.analyze_with_original(entry.content)
+        # Force fallback analysis
+        analysis = ml_service._get_fallback_analysis()
         return {
             "analysis": analysis,
             "entry_content": entry.content,
@@ -1056,7 +1063,7 @@ async def analyze_with_original(entry: JournalEntryCreate):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Original analysis failed: {str(e)}"
+            detail=f"Fallback analysis failed: {str(e)}"
         )
 
 # User Profile Management Endpoints
