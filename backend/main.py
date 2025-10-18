@@ -249,6 +249,8 @@ app.add_middleware(
         "http://127.0.0.1",
         # Add your Vercel domain here (will be updated after deployment)
         "https://your-project-name.vercel.app",
+        # Add wildcard for Vercel preview deployments
+        "https://*.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -1151,6 +1153,4 @@ async def readiness_check():
 
 if __name__ == "__main__":
     import uvicorn
-    import os
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
