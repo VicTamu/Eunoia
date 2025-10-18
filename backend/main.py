@@ -18,21 +18,17 @@ try:
 except ImportError:
     from hybrid_ml_service import analyze_journal_entry, hybrid_service as ml_service
     print("Using hybrid ML service (local models)")
-# Try to import auth service, fallback to simple auth if not available
+# Use simple auth service for production deployment
 try:
-    from supabase_auth_service import get_current_user, require_auth
-    print("Using Supabase auth service")
+    from simple_auth_service import get_current_user, require_auth
+    print("Using simple auth service")
 except ImportError:
-    try:
-        from simple_auth_service import get_current_user, require_auth
-        print("Using simple auth service")
-    except ImportError:
-        print("No auth service available, using demo auth")
-        # Demo fallback auth functions
-        def get_current_user(token: str):
-            return {"id": "demo-user", "email": "demo@example.com"}
-        def require_auth(token: str):
-            return {"id": "demo-user", "email": "demo@example.com"}
+    print("Simple auth service not available, using demo auth")
+    # Demo fallback auth functions
+    def get_current_user(token: str):
+        return {"id": "demo-user", "email": "demo@example.com"}
+    def require_auth(token: str):
+        return {"id": "demo-user", "email": "demo@example.com"}
 from pathlib import Path
 from error_handler import (
     ErrorHandler, ErrorFactory, ErrorCode, ErrorSeverity, 
