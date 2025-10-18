@@ -11,24 +11,8 @@ import os
 import json
 import re
 from dotenv import load_dotenv
-# Try production ML service first, fallback to hybrid service
-try:
-    from production_ml_service import analyze_journal_entry, production_ml_service as ml_service
-    print("Using production ML service (HuggingFace API)")
-except ImportError:
-    from hybrid_ml_service import analyze_journal_entry, hybrid_service as ml_service
-    print("Using hybrid ML service (local models)")
-# Use simple auth service for production deployment
-try:
-    from simple_auth_service import get_current_user, require_auth
-    print("Using simple auth service")
-except ImportError:
-    print("Simple auth service not available, using demo auth")
-    # Demo fallback auth functions
-    def get_current_user(token: str):
-        return {"id": "demo-user", "email": "demo@example.com"}
-    def require_auth(token: str):
-        return {"id": "demo-user", "email": "demo@example.com"}
+from hybrid_ml_service import analyze_journal_entry, hybrid_service
+from supabase_auth_service import get_current_user, require_auth
 from pathlib import Path
 from error_handler import (
     ErrorHandler, ErrorFactory, ErrorCode, ErrorSeverity, 
@@ -263,6 +247,8 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://localhost",
         "http://127.0.0.1",
+        # Add your Vercel domain here (will be updated after deployment)
+        "https://your-project-name.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -1027,20 +1013,20 @@ async def get_ai_methods():
     
     Returns information about which AI frameworks are available and currently active.
     """
-    return ml_service.get_available_methods()
+    return hybrid_service.get_available_methods()
 
-@app.post("/ai/analyze/huggingface")
-async def analyze_with_huggingface(entry: JournalEntryCreate):
+@app.post("/ai/analyze/agno")
+async def analyze_with_agno(entry: JournalEntryCreate):
     """
-    Analyze a journal entry using HuggingFace API.
+    Analyze a journal entry using Agno framework specifically.
     
     - **content**: The journal entry text (required)
     - **date**: Optional date for the entry (defaults to current time)
     
-    Returns the analysis results using HuggingFace Inference API.
+    Returns the analysis results using Agno framework with HuggingFace models.
     """
     try:
-        analysis = analyze_journal_entry(entry.content)
+        analysis = hybrid_service.analyze_with_agno(entry.content)
         return {
             "analysis": analysis,
             "entry_content": entry.content,
@@ -1049,22 +1035,21 @@ async def analyze_with_huggingface(entry: JournalEntryCreate):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"HuggingFace analysis failed: {str(e)}"
+            detail=f"Agno analysis failed: {str(e)}"
         )
 
-@app.post("/ai/analyze/fallback")
-async def analyze_with_fallback(entry: JournalEntryCreate):
+@app.post("/ai/analyze/original")
+async def analyze_with_original(entry: JournalEntryCreate):
     """
-    Analyze a journal entry using fallback method.
+    Analyze a journal entry using the original implementation.
     
     - **content**: The journal entry text (required)
     - **date**: Optional date for the entry (defaults to current time)
     
-    Returns the analysis results using fallback implementation.
+    Returns the analysis results using the original ML implementation.
     """
     try:
-        # Force fallback analysis
-        analysis = ml_service._get_fallback_analysis()
+        analysis = hybrid_service.analyze_with_original(entry.content)
         return {
             "analysis": analysis,
             "entry_content": entry.content,
@@ -1073,7 +1058,7 @@ async def analyze_with_fallback(entry: JournalEntryCreate):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Fallback analysis failed: {str(e)}"
+            detail=f"Original analysis failed: {str(e)}"
         )
 
 # User Profile Management Endpoints
