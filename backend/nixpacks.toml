@@ -1,8 +1,12 @@
 [phases.setup]
-nixPkgs = ["python311", "python311Packages.pip"]
+nixPkgs = ["python311"]
 
 [phases.install]
-cmds = ["python -m pip install -r requirements-render.txt"]
+cmds = [
+  "curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py",
+  "python get-pip.py",
+  "python -m pip install -r requirements-render.txt"
+]
 
 [phases.build]
 cmds = ["echo 'Build phase complete'"]
