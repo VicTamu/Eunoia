@@ -2,7 +2,7 @@
 nixPkgs = ["python311"]
 
 [phases.install]
-cmds = ["pip install -r requirements-render.txt"]
+cmds = ["python -m pip install -r requirements-render.txt"]
 
 [phases.build]
 cmds = ["echo 'Build phase complete'"]
