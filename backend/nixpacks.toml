@@ -1,15 +1,12 @@
 [phases.setup]
-nixPkgs = ["python311"]
-
-[phases.install]
-cmds = [
-  "curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py",
-  "python get-pip.py",
-  "python -m pip install -r requirements-render.txt"
-]
+nixPkgs = ["python3", "python3Packages.pip"]
 
 [phases.build]
-cmds = ["echo 'Build phase complete'"]
+cmds = [
+  "python3 -m venv venv",
+  "source venv/bin/activate",
+  "pip install -r requirements-render.txt"
+]
 
 [start]
-cmd = "python -m uvicorn main:app --host 0.0.0.0 --port $PORT"
+cmd = "source venv/bin/activate && python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT"
