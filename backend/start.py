@@ -19,8 +19,8 @@ os.environ.setdefault('PYTHONPATH', str(backend_dir))
 def main():
     """Start the FastAPI application"""
     try:
-        # Import the app
-        from main import app
+        # Import the hybrid app
+        from hybrid_main import app
         
         # Get port from environment (Render sets this)
         port = int(os.environ.get('PORT', 8000))
