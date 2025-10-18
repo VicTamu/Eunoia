@@ -71,7 +71,9 @@ class SentimentAnalyzer:
         # Defer heavy model loading unless enabled
         self.models_enabled = os.environ.get('EUNOIA_ENABLE_MODELS', '0') in ('1', 'true', 'True')
         if self.models_enabled:
-            self._load_models()
+            # Load models in background to avoid blocking startup
+            import threading
+            threading.Thread(target=self._load_models, daemon=True).start()
         else:
             logger.info("Model loading disabled (EUNOIA_ENABLE_MODELS not set). Using rule-based fallback.")
     

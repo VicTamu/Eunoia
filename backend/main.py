@@ -1134,6 +1134,18 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
+        "version": "1.0.0",
+        "ml_models_loading": analyzer.models_enabled and analyzer.sentiment_pipeline is None
+    }
+
+@app.get("/ready")
+async def readiness_check():
+    """
+    Readiness check endpoint - returns 200 when fully ready.
+    """
+    return {
+        "status": "ready",
+        "timestamp": datetime.utcnow().isoformat(),
         "version": "1.0.0"
     }
 
