@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   BarChart,
   Bar,
@@ -24,14 +24,7 @@ const Dashboard: React.FC = () => {
     component: 'Dashboard',
   });
 
-  useEffect(() => {
-    // Only load data when user is authenticated and session is available
-    if (user && session && !loading) {
-      loadDashboardData();
-    }
-  }, [user, session, loading, loadDashboardData]);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     await handleAsync(
       async () => {
         const [trendsData, insightsData] = await Promise.all([
@@ -47,7 +40,14 @@ const Dashboard: React.FC = () => {
         action: 'load_dashboard_data',
       },
     );
-  };
+  }, [handleAsync]);
+
+  useEffect(() => {
+    // Only load data when user is authenticated and session is available
+    if (user && session && !loading) {
+      loadDashboardData();
+    }
+  }, [user, session, loading, loadDashboardData]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
