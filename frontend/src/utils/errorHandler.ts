@@ -151,15 +151,19 @@ export class ErrorHandler {
 
     switch (error.severity) {
       case ErrorSeverity.CRITICAL:
+        // eslint-disable-next-line no-console
         console.error(logMessage, error);
         break;
       case ErrorSeverity.HIGH:
+        // eslint-disable-next-line no-console
         console.error(logMessage, error);
         break;
       case ErrorSeverity.MEDIUM:
+        // eslint-disable-next-line no-console
         console.warn(logMessage, error);
         break;
       case ErrorSeverity.LOW:
+        // eslint-disable-next-line no-console
         console.info(logMessage, error);
         break;
     }
@@ -207,13 +211,14 @@ export class ErrorHandler {
   private sendToLoggingService(error: StandardError): void {
     // In production, implement actual logging service integration
     // e.g., Sentry, LogRocket, etc.
+    // eslint-disable-next-line no-console
     console.log('Sending error to logging service:', error);
   }
 
   /**
    * Handle API errors from axios responses
    */
-  handleApiError(error: any, context?: Partial<ErrorContext>): StandardError {
+  handleApiError(error: unknown, context?: Partial<ErrorContext>): StandardError {
     const errorContext = this.createErrorContext(
       context?.userId,
       context?.component,
@@ -221,10 +226,13 @@ export class ErrorHandler {
       context?.additionalData,
     );
 
-    if (error.response) {
+    // Narrow unknown
+    const err: any = error as any;
+
+    if (err.response) {
       // Server responded with error status
-      const status = error.response.status;
-      const data = error.response.data;
+      const status = err.response.status;
+      const data = err.response.data;
 
       let code: ErrorCode;
       let message: string;
@@ -267,25 +275,25 @@ export class ErrorHandler {
       }
 
       return this.createError(code, message, {
-        detail: data?.detail || error.message,
+        detail: data?.detail || String(err.message || ''),
         severity,
         context: errorContext,
-        originalError: error,
+        originalError: err,
       });
-    } else if (error.request) {
+    } else if ((err as any).request) {
       // Network error
       return this.createError(ErrorCode.NETWORK_ERROR, 'Network error', {
-        detail: error.message,
+        detail: String(err.message || ''),
         severity: ErrorSeverity.HIGH,
         context: errorContext,
-        originalError: error,
+        originalError: err,
       });
     } else {
       // Other error
       return this.createError(ErrorCode.UNKNOWN_ERROR, 'Unknown error', {
-        detail: error.message,
+        detail: String((err as any)?.message || ''),
         context: errorContext,
-        originalError: error,
+        originalError: err,
       });
     }
   }
@@ -309,7 +317,7 @@ export class ErrorHandler {
 export const errorHandler = ErrorHandler.getInstance();
 
 // Export error factory functions for common scenarios
-export const createApiError = (error: any, context?: Partial<ErrorContext>) =>
+export const createApiError = (error: unknown, context?: Partial<ErrorContext>) =>
   errorHandler.handleApiError(error, context);
 
 export const createValidationError = (message: string, context?: Partial<ErrorContext>) =>

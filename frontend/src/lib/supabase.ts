@@ -4,6 +4,7 @@ const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || '';
 
 if (!supabaseUrl || !supabaseAnonKey) {
+  // eslint-disable-next-line no-console
   console.warn('Supabase credentials not found. Authentication will be disabled.');
 }
 
@@ -54,12 +55,13 @@ export const auth = {
   },
 
   // Listen to auth state changes
-  onAuthStateChange: (callback: (event: string, session: any) => void) => {
+  onAuthStateChange: (callback: (event: string, session: unknown) => void) => {
     return supabase.auth.onAuthStateChange(callback);
   },
 
   // Force clear all auth data and get fresh tokens
   forceRefresh: async () => {
+    // eslint-disable-next-line no-console
     console.log('Forcing auth refresh...');
     // Clear all stored auth data
     await supabase.auth.signOut();

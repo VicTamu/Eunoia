@@ -3,7 +3,7 @@
  * Provides consistent error handling patterns for React components
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import {
   errorHandler,
   ErrorCode,
@@ -18,10 +18,10 @@ export interface UseErrorHandlerReturn {
   isError: boolean;
   setError: (error: StandardError | null) => void;
   clearError: () => void;
-  handleError: (error: any, context?: Partial<ErrorContext>) => StandardError;
+  handleError: (error: unknown, context?: Partial<ErrorContext>) => StandardError;
   handleAsync: <T>(asyncFn: () => Promise<T>, context?: Partial<ErrorContext>) => Promise<T | null>;
   retry: () => void;
-  lastRetryFn: (() => Promise<any>) | null;
+  lastRetryFn: (() => Promise<unknown>) | null;
 }
 
 export interface UseErrorHandlerOptions {
@@ -39,7 +39,7 @@ export const useErrorHandler = (options: UseErrorHandlerOptions = {}): UseErrorH
   const [error, setError] = useState<StandardError | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  const [lastRetryFn, setLastRetryFn] = useState<(() => Promise<any>) | null>(null);
+  const [lastRetryFn, _setLastRetryFn] = useState<(() => Promise<unknown>) | null>(null);
 
   const isError = error !== null;
 
@@ -49,7 +49,7 @@ export const useErrorHandler = (options: UseErrorHandlerOptions = {}): UseErrorH
   }, []);
 
   const handleError = useCallback(
-    (error: any, context?: Partial<ErrorContext>): StandardError => {
+    (error: unknown, context?: Partial<ErrorContext>): StandardError => {
       const errorContext = {
         component,
         userId,

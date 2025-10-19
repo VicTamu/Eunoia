@@ -36,6 +36,7 @@ api.interceptors.request.use(async (config) => {
 
     if (timeUntilExpiry < 300 && timeUntilExpiry > 0) {
       // 5 minutes = 300 seconds
+      // eslint-disable-next-line no-console
       console.log('[journalApi] Token expiring soon, refreshing proactively...');
       try {
         const {
@@ -43,13 +44,16 @@ api.interceptors.request.use(async (config) => {
           error: refreshError,
         } = await supabase.auth.refreshSession();
         if (!refreshError && refreshedSession?.access_token) {
+          // eslint-disable-next-line no-console
           console.log('[journalApi] Token refreshed proactively');
           config.headers.Authorization = `Bearer ${refreshedSession.access_token}`;
         } else {
+          // eslint-disable-next-line no-console
           console.log('[journalApi] Proactive refresh failed, using current token');
           config.headers.Authorization = `Bearer ${session.access_token}`;
         }
       } catch (error) {
+        // eslint-disable-next-line no-console
         console.log('[journalApi] Proactive refresh error, using current token:', error);
         config.headers.Authorization = `Bearer ${session.access_token}`;
       }
@@ -57,12 +61,15 @@ api.interceptors.request.use(async (config) => {
       config.headers.Authorization = `Bearer ${session.access_token}`;
     }
     // eslint-disable-next-line no-console
+    // eslint-disable-next-line no-console
     console.log('[journalApi] Added auth header');
   } else {
+    // eslint-disable-next-line no-console
     // eslint-disable-next-line no-console
     console.log('[journalApi] No auth header added - user not authenticated');
   }
 
+  // eslint-disable-next-line no-console
   // eslint-disable-next-line no-console
   console.log('[journalApi] →', config.method?.toUpperCase(), config.url);
   return config;
@@ -78,6 +85,7 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
+        // eslint-disable-next-line no-console
         console.log('[journalApi] Token expired, attempting refresh...');
 
         // Try to refresh the session
@@ -87,6 +95,7 @@ api.interceptors.response.use(
         } = await supabase.auth.refreshSession();
 
         if (refreshError) {
+          // eslint-disable-next-line no-console
           console.log('[journalApi] Token refresh failed:', refreshError.message);
           // Clear all auth data and redirect to login
           await supabase.auth.signOut();
@@ -99,11 +108,13 @@ api.interceptors.response.use(
         if (session?.access_token) {
           // Update the authorization header with new token
           originalRequest.headers.Authorization = `Bearer ${session.access_token}`;
+          // eslint-disable-next-line no-console
           console.log('[journalApi] Token refreshed successfully, retrying request');
 
           // Retry the original request with new token
           return api(originalRequest);
         } else {
+          // eslint-disable-next-line no-console
           console.log('[journalApi] No access token in refresh response');
           // Clear auth data and redirect
           await supabase.auth.signOut();
@@ -113,6 +124,7 @@ api.interceptors.response.use(
           return Promise.reject(error);
         }
       } catch (refreshError) {
+        // eslint-disable-next-line no-console
         console.log('[journalApi] Token refresh error:', refreshError);
         // Clear auth data and redirect to login
         await supabase.auth.signOut();

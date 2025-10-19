@@ -6,9 +6,9 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string) => Promise<{ data: any; error: any }>;
-  signIn: (email: string, password: string) => Promise<{ data: any; error: any }>;
-  signOut: () => Promise<{ error: any }>;
+  signUp: (email: string, password: string) => Promise<{ data: unknown; error: unknown }>;
+  signIn: (email: string, password: string) => Promise<{ data: unknown; error: unknown }>;
+  signOut: () => Promise<{ error: unknown }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -46,8 +46,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
-      console.log('[AuthContext] Auth state change:', event);
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      // eslint-disable-next-line no-console
+      console.log('[AuthContext] Auth state change');
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -65,6 +66,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const fiveMinutes = 5 * 60 * 1000;
 
         if (expiresAt - now < fiveMinutes) {
+          // eslint-disable-next-line no-console
           console.log('[AuthContext] Token expiring soon, refreshing...');
           await supabase.auth.refreshSession();
         }
