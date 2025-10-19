@@ -40,7 +40,10 @@ const SignupForm: React.FC<SignupFormProps> = ({ onToggleMode }) => {
     try {
       const { error } = await signUp(email, password);
       if (error) {
-        setError(error.message);
+        const errorMessage = error && typeof error === 'object' && 'message' in error 
+          ? String(error.message) 
+          : 'Signup failed. Please try again.';
+        setError(errorMessage);
       } else {
         setSuccess(true);
         setEmail('');
