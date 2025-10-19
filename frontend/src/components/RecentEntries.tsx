@@ -68,7 +68,6 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
     try {
       setLoading(true);
       setError(''); // Clear any previous errors
-      
       const data = await journalApi.getEntries(1, 10); // Page 1, 10 per page
       setFetchedEntries(data);
     } catch (err) {
@@ -112,8 +111,8 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
       minute: '2-digit',
     });
   };
-
   const getEmotionEmoji = (emotion: string | null) => {
+  
     const emotionMap: { [key: string]: string } = {
       joy: '😊',
       sadness: '😢',

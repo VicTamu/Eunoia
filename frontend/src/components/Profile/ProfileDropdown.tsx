@@ -58,7 +58,13 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut }) => {
       .slice(0, 2);
   };
 
-  const themeOptions: { value: Theme; label: string; color: string }[] = [
+  type ThemeOption = {
+    value: Theme;
+    label: string;
+    color: string;
+  };
+
+  const themeOptions: ThemeOption[] = [
     { value: 'light', label: 'Light', color: 'bg-gray-100' },
     { value: 'dark', label: 'Dark', color: 'bg-gray-800' },
     { value: 'blue', label: 'Blue', color: 'bg-blue-500' },
