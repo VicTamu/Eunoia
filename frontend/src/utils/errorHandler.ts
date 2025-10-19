@@ -49,7 +49,7 @@ export interface ErrorContext {
   component?: string;
   action?: string;
   timestamp: Date;
-  additionalData?: Record<string, any>;
+  additionalData?: Record<string, unknown>;
 }
 
 export interface StandardError {
@@ -84,7 +84,7 @@ export class ErrorHandler {
     userId?: string,
     component?: string,
     action?: string,
-    additionalData?: Record<string, any>,
+    additionalData?: Record<string, unknown>,
   ): ErrorContext {
     return {
       requestId: this.generateRequestId(),
@@ -177,7 +177,7 @@ export class ErrorHandler {
   /**
    * Get user-friendly error message
    */
-  private getUserFriendlyMessage(code: ErrorCode, message: string): string {
+  private getUserFriendlyMessage(code: ErrorCode, _message: string): string {
     const userMessages: Record<ErrorCode, string> = {
       [ErrorCode.NETWORK_ERROR]:
         'Unable to connect to the server. Please check your internet connection.',
@@ -226,8 +226,9 @@ export class ErrorHandler {
       context?.additionalData,
     );
 
-    // Narrow unknown
-    const err: any = error as any;
+    // Narrow unknown - check if it's an axios error
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const err = error as any;
 
     if (err.response) {
       // Server responded with error status
@@ -280,7 +281,7 @@ export class ErrorHandler {
         context: errorContext,
         originalError: err,
       });
-    } else if ((err as any).request) {
+    } else if (err.request) {
       // Network error
       return this.createError(ErrorCode.NETWORK_ERROR, 'Network error', {
         detail: String(err.message || ''),
@@ -291,7 +292,7 @@ export class ErrorHandler {
     } else {
       // Other error
       return this.createError(ErrorCode.UNKNOWN_ERROR, 'Unknown error', {
-        detail: String((err as any)?.message || ''),
+        detail: String(err?.message || ''),
         context: errorContext,
         originalError: err,
       });

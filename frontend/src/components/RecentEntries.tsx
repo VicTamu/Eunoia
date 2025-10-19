@@ -71,7 +71,6 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
       const data = await journalApi.getEntries(1, 10); // Page 1, 10 per page
       setFetchedEntries(data);
     } catch (err) {
-      
       const errorMessage = err instanceof Error ? err.message : 'Failed to load recent entries.';
       setError(errorMessage);
     } finally {
@@ -111,8 +110,8 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
       minute: '2-digit',
     });
   };
+
   const getEmotionEmoji = (emotion: string | null) => {
-  
     const emotionMap: { [key: string]: string } = {
       joy: '😊',
       sadness: '😢',

@@ -4,13 +4,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import {
-  errorHandler,
-  ErrorCode,
-  ErrorSeverity,
-  StandardError,
-  ErrorContext,
-} from '../utils/errorHandler';
+import { errorHandler, StandardError, ErrorContext } from '../utils/errorHandler';
 
 export interface UseErrorHandlerReturn {
   error: StandardError | null;
@@ -56,20 +50,20 @@ export const useErrorHandler = (options: UseErrorHandlerOptions = {}): UseErrorH
         ...context,
       };
 
-      let standardError: StandardError;
+      let _standardError: StandardError;
 
       if (error instanceof Error && 'code' in error) {
         // Already a StandardError
-        standardError = error as unknown as StandardError;
+        _standardError = error as unknown as StandardError;
       } else {
         // Handle API errors or other errors
-        standardError = errorHandler.handleApiError(error, errorContext);
+        _standardError = errorHandler.handleApiError(error, errorContext);
       }
 
-      setError(standardError);
-      onError?.(standardError);
+      setError(_standardError);
+      onError?.(_standardError);
 
-      return standardError;
+      return _standardError;
     },
     [component, userId, onError],
   );
@@ -169,10 +163,10 @@ export const useErrorBoundary = () => {
     setError(null);
   }, []);
 
-  const captureError = useCallback((error: any, context?: Partial<ErrorContext>) => {
-    const standardError = errorHandler.handleApiError(error, context);
-    setError(standardError);
-    return standardError;
+  const captureError = useCallback((error: unknown, context?: Partial<ErrorContext>) => {
+        const _standardError = errorHandler.handleApiError(error, context);
+    setError(_standardError);
+    return _standardError;
   }, []);
 
   return {

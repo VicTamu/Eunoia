@@ -123,7 +123,9 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut }) => {
               <div className="px-4 py-2">
                 <div className="flex items-center gap-2 mb-2">
                   <Palette className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Theme</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Theme
+                  </span>
                 </div>
                 <div className="flex gap-1">
                   {themeOptions.map((option) => (

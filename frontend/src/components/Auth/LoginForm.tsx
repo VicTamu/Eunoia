@@ -23,9 +23,10 @@ const LoginForm: React.FC<LoginFormProps> = ({ onToggleMode }) => {
     try {
       const { error } = await signIn(email, password);
       if (error) {
-        const errorMessage = error && typeof error === 'object' && 'message' in error 
-          ? String(error.message) 
-          : 'Login failed. Please check your credentials.';
+        const errorMessage =
+          error && typeof error === 'object' && 'message' in error
+            ? String(error.message)
+            : 'Login failed. Please check your credentials.';
         setError(errorMessage);
       }
     } catch (err) {
