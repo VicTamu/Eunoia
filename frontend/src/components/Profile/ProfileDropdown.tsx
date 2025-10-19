@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Settings, Palette, LogOut, ChevronDown, Edit3, Shield } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useTheme, Theme } from '../../contexts/ThemeContext';
 import PreferencesModal from './PreferencesModal';
 
 interface ProfileDropdownProps {
@@ -40,15 +40,22 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut }) => {
   };
 
   const getDisplayName = () => {
-    return user?.user_metadata?.display_name || 
-           user?.user_metadata?.full_name || 
-           user?.email?.split('@')[0] || 
-           'User';
+    return (
+      user?.user_metadata?.display_name ||
+      user?.user_metadata?.full_name ||
+      user?.email?.split('@')[0] ||
+      'User'
+    );
   };
 
   const getInitials = () => {
     const name = getDisplayName();
-    return name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+    return name
+      .split(' ')
+      .map((n: string) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   const themeOptions = [
@@ -56,7 +63,7 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut }) => {
     { value: 'dark', label: 'Dark', color: 'bg-gray-800' },
     { value: 'blue', label: 'Blue', color: 'bg-blue-500' },
     { value: 'green', label: 'Green', color: 'bg-green-500' },
-    { value: 'purple', label: 'Purple', color: 'bg-purple-500' }
+    { value: 'purple', label: 'Purple', color: 'bg-purple-500' },
   ];
 
   return (
@@ -70,7 +77,11 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut }) => {
           <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
             {getInitials()}
           </div>
-          <ChevronDown className={`h-4 w-4 text-gray-600 dark:text-gray-300 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown
+            className={`h-4 w-4 text-gray-600 dark:text-gray-300 transition-transform ${
+              isOpen ? 'rotate-180' : ''
+            }`}
+          />
         </button>
 
         {/* Dropdown Menu */}
@@ -86,9 +97,7 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut }) => {
                   <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                     {getDisplayName()}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                    {user?.email}
-                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
                 </div>
               </div>
             </div>
@@ -114,10 +123,10 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut }) => {
                   {themeOptions.map((option) => (
                     <button
                       key={option.value}
-                      onClick={() => setTheme(option.value as any)}
+                      onClick={() => setTheme(option.value as Theme)}
                       className={`w-6 h-6 rounded-full ${option.color} border-2 ${
-                        theme === option.value 
-                          ? 'border-blue-500 dark:border-blue-400' 
+                        theme === option.value
+                          ? 'border-blue-500 dark:border-blue-400'
                           : 'border-gray-300 dark:border-gray-600'
                       } transition-all hover:scale-110`}
                       title={option.label}
@@ -161,11 +170,7 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut }) => {
       </div>
 
       {/* Preferences Modal */}
-      {showPreferences && (
-        <PreferencesModal
-          onClose={() => setShowPreferences(false)}
-        />
-      )}
+      {showPreferences && <PreferencesModal onClose={() => setShowPreferences(false)} />}
     </>
   );
 };
