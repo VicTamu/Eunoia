@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BookOpen, Calendar, Heart, Brain, AlertTriangle } from 'lucide-react';
+import { BookOpen, Calendar, Heart, Brain } from 'lucide-react';
 import { journalApi } from '../services/api';
 import { JournalEntry } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -68,12 +68,11 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
     try {
       setLoading(true);
       setError(''); // Clear any previous errors
-      console.log('Loading entries...');
+      
       const data = await journalApi.getEntries(1, 10); // Page 1, 10 per page
-      console.log('Loaded entries:', data);
       setFetchedEntries(data);
     } catch (err) {
-      console.error('Error loading entries:', err);
+      
       const errorMessage = err instanceof Error ? err.message : 'Failed to load recent entries.';
       setError(errorMessage);
     } finally {
@@ -113,7 +112,6 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
       minute: '2-digit',
     });
   };
-
 
   const getEmotionEmoji = (emotion: string | null) => {
     const emotionMap: { [key: string]: string } = {

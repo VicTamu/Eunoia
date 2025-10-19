@@ -58,7 +58,7 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut }) => {
       .slice(0, 2);
   };
 
-  const themeOptions = [
+  const themeOptions: { value: Theme; label: string; color: string }[] = [
     { value: 'light', label: 'Light', color: 'bg-gray-100' },
     { value: 'dark', label: 'Dark', color: 'bg-gray-800' },
     { value: 'blue', label: 'Blue', color: 'bg-blue-500' },
@@ -123,7 +123,7 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut }) => {
                   {themeOptions.map((option) => (
                     <button
                       key={option.value}
-                      onClick={() => setTheme(option.value as Theme)}
+                      onClick={() => setTheme(option.value)}
                       className={`w-6 h-6 rounded-full ${option.color} border-2 ${
                         theme === option.value
                           ? 'border-blue-500 dark:border-blue-400'
