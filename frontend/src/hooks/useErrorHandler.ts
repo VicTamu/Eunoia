@@ -78,7 +78,7 @@ export const useErrorHandler = (options: UseErrorHandlerOptions = {}): UseErrorH
         setRetryCount(0);
         return result;
       } catch (err) {
-        const standardError = handleError(err, context);
+        const _standardError = handleError(err, context);
 
         if (autoRetry && retryCount < maxRetries) {
           setRetryCount((prev) => prev + 1);
@@ -164,7 +164,7 @@ export const useErrorBoundary = () => {
   }, []);
 
   const captureError = useCallback((error: unknown, context?: Partial<ErrorContext>) => {
-        const _standardError = errorHandler.handleApiError(error, context);
+    const _standardError = errorHandler.handleApiError(error, context);
     setError(_standardError);
     return _standardError;
   }, []);
