@@ -173,7 +173,7 @@ def install_backend_dependencies():
         if result.returncode != 0:
             print("🔄 Trying to install core dependencies only...")
             core_deps = [
-                "fastapi", "uvicorn", "sqlalchemy", "pandas", "numpy", 
+                "fastapi", "uvicorn", "sqlalchemy", "numpy", 
                 "scikit-learn", "requests", "python-multipart"
             ]
             for dep in core_deps:
