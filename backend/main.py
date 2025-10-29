@@ -31,8 +31,8 @@ SUPABASE_DB_HOST = os.environ.get('SUPABASE_DB_HOST', 'db.wglvjoncodlrvkgleyvv.s
 SUPABASE_DB_PORT = os.environ.get('SUPABASE_DB_PORT', '5432')
 SUPABASE_DB_NAME = os.environ.get('SUPABASE_DB_NAME', 'postgres')
 
-# Construct PostgreSQL connection string
-SQLALCHEMY_DATABASE_URL = f"postgresql://postgres:{SUPABASE_DB_PASSWORD}@{SUPABASE_DB_HOST}:{SUPABASE_DB_PORT}/{SUPABASE_DB_NAME}"
+# Construct PostgreSQL connection string (psycopg v3 driver)
+SQLALCHEMY_DATABASE_URL = f"postgresql+psycopg://postgres:{SUPABASE_DB_PASSWORD}@{SUPABASE_DB_HOST}:{SUPABASE_DB_PORT}/{SUPABASE_DB_NAME}"
 
 # Fallback to SQLite if Supabase credentials not available
 if not SUPABASE_URL or not SUPABASE_DB_PASSWORD:
