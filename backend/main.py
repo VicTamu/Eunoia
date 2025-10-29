@@ -43,7 +43,10 @@ if not SUPABASE_URL or not SUPABASE_DB_PASSWORD:
     engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 else:
     print("Using Supabase PostgreSQL database")
-    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL,
+        connect_args={"sslmode": "require"}
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -1136,8 +1139,7 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
-        "version": "1.0.0",
-        "ml_models_loading": analyzer.models_enabled and analyzer.sentiment_pipeline is None
+        "version": "1.0.0"
     }
 
 @app.get("/ready")
