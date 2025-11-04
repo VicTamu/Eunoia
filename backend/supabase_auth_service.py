@@ -40,7 +40,12 @@ class SupabaseAuthService:
         # Create database engine for user_profiles queries
         # Use psycopg v3 driver for SQLAlchemy
         self.db_url = f"postgresql+psycopg://postgres:{self.supabase_db_password}@{self.supabase_db_host}:{self.supabase_db_port}/{self.supabase_db_name}"
-        self.engine = create_engine(self.db_url)
+        self.engine = create_engine(
+            self.db_url,
+            connect_args={"sslmode": "require", "connect_timeout": 5},
+            pool_pre_ping=True,
+            pool_recycle=300
+        )
         
         logger.info("Supabase auth service initialized with user_profiles support")
     

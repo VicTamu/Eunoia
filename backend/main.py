@@ -5,12 +5,14 @@ from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from pydantic import BaseModel, Field, validator
+import time
 from datetime import datetime, date, timedelta
 from typing import List, Optional, Dict, Any, Tuple
 import os
 import json
 import re
 from dotenv import load_dotenv
+from sqlalchemy.exc import OperationalError
 from hybrid_ml_service import analyze_journal_entry, hybrid_service
 from supabase_auth_service import get_current_user, require_auth
 from pathlib import Path
@@ -45,7 +47,9 @@ else:
     print("Using Supabase PostgreSQL database")
     engine = create_engine(
         SQLALCHEMY_DATABASE_URL,
-        connect_args={"sslmode": "require"}
+        connect_args={"sslmode": "require", "connect_timeout": 5},
+        pool_pre_ping=True,
+        pool_recycle=300
     )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -317,8 +321,17 @@ def get_current_user_optional(authorization: str = Header(None)) -> Optional[Dic
     
     return get_current_user(authorization)
 
-# Create tables
-Base.metadata.create_all(bind=engine)
+# Initialize database on startup with short retry to avoid transient DNS/connect hiccups
+@app.on_event("startup")
+def init_db():
+    for _ in range(5):
+        try:
+            # Use a transaction-bound connection for DDL
+            with engine.begin() as conn:
+                Base.metadata.create_all(bind=conn)
+            return
+        except OperationalError:
+            time.sleep(3)
 
 # Routes
 @app.get("/")
