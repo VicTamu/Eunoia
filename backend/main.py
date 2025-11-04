@@ -14,7 +14,7 @@ import re
 from dotenv import load_dotenv
 from sqlalchemy.exc import OperationalError
 from hybrid_ml_service import analyze_journal_entry, hybrid_service
-from supabase_auth_service import get_current_user, require_auth
+from supabase_auth_service import get_current_user, require_auth, auth_service
 from pathlib import Path
 from error_handler import (
     ErrorHandler, ErrorFactory, ErrorCode, ErrorSeverity, 
@@ -272,13 +272,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Database dependency
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# Supabase client (service role) for database operations
+supabase_db = auth_service.supabase
 
 # Authentication dependency
 def get_current_user_dependency(authorization: str = Header(None)) -> Dict[str, Any]:
@@ -329,17 +324,7 @@ def get_current_user_optional(authorization: str = Header(None)) -> Optional[Dic
     
     return get_current_user(authorization)
 
-# Initialize database on startup with short retry to avoid transient DNS/connect hiccups
-@app.on_event("startup")
-def init_db():
-    for _ in range(5):
-        try:
-            # Use a transaction-bound connection for DDL
-            with engine.begin() as conn:
-                Base.metadata.create_all(bind=conn)
-            return
-        except OperationalError:
-            time.sleep(3)
+## Schema initialization is managed in Supabase; no startup DB DDL here.
 
 # Routes
 @app.get("/")
@@ -349,7 +334,6 @@ async def root():
 @app.post("/entries/", response_model=JournalEntryResponse, status_code=status.HTTP_201_CREATED)
 async def create_entry(
     entry: JournalEntryCreate, 
-    db: Session = Depends(get_db),
     current_user: Dict[str, Any] = Depends(get_current_user_dependency)
 ):
     """
@@ -396,27 +380,22 @@ async def create_entry(
         # Get emotions_detected as list (already structured from ML service)
         emotions_detected = analysis.get("emotions_detected", [])
         
-        db_entry = JournalEntry(
-            user_id=current_user["id"],  # Associate with authenticated user
-            content=entry.content,
-            date=entry.date or datetime.utcnow(),
-            sentiment_score=analysis["sentiment_score"],
-            emotion=analysis["emotion"],
-            emotion_confidence=analysis.get("emotion_confidence"),
-            emotions_detected=emotions_detected,
-            emotion_group=analysis.get("emotion_group"),
-            stress_level=analysis["stress_level"],
-            word_count=word_count
-        )
-        
-        db.add(db_entry)
-        db.commit()
-        db.refresh(db_entry)
-        
-        return db_entry
+        payload = {
+            "user_id": current_user["id"],
+            "content": entry.content,
+            "date": (entry.date or datetime.utcnow()).isoformat(),
+            "sentiment_score": analysis["sentiment_score"],
+            "emotion": analysis["emotion"],
+            "emotion_confidence": analysis.get("emotion_confidence"),
+            "emotions_detected": emotions_detected,
+            "emotion_group": analysis.get("emotion_group"),
+            "stress_level": analysis["stress_level"],
+            "word_count": word_count,
+        }
+        resp = supabase_db.table("journal_entries").insert(payload).select("*").single().execute()
+        return resp.data
         
     except Exception as e:
-        db.rollback()
         error = error_factory.database_error(
             message="Failed to create journal entry",
             detail=str(e),
@@ -440,7 +419,6 @@ async def get_entries(
     end_date: Optional[datetime] = Query(None, description="End date filter"),
     sort_by: str = Query("created_at", description="Sort field (created_at, date, sentiment_score, stress_level)"),
     sort_order: str = Query("desc", description="Sort order (asc, desc)"),
-    db: Session = Depends(get_db),
     current_user: Dict[str, Any] = Depends(get_current_user_dependency)
 ):
     """
@@ -480,67 +458,45 @@ async def get_entries(
     )
     
     try:
-        # Build query - filter by current user
-        query = db.query(JournalEntry).filter(JournalEntry.user_id == current_user["id"])
-        
-        # Apply filters
+        # Build Supabase query
+        q = supabase_db.table("journal_entries").select("*", count="exact").eq("user_id", current_user["id"])
         if search:
-            query = query.filter(JournalEntry.content.contains(search))
-        
+            q = q.ilike("content", f"%{search}%")
         if emotion:
-            query = query.filter(JournalEntry.emotion == emotion)
-        
+            q = q.eq("emotion", emotion)
         if emotion_group:
-            query = query.filter(JournalEntry.emotion_group == emotion_group)
-        
+            q = q.eq("emotion_group", emotion_group)
         if min_sentiment is not None:
-            query = query.filter(JournalEntry.sentiment_score >= min_sentiment)
-        
+            q = q.gte("sentiment_score", min_sentiment)
         if max_sentiment is not None:
-            query = query.filter(JournalEntry.sentiment_score <= max_sentiment)
-        
+            q = q.lte("sentiment_score", max_sentiment)
         if min_stress is not None:
-            query = query.filter(JournalEntry.stress_level >= min_stress)
-        
+            q = q.gte("stress_level", min_stress)
         if max_stress is not None:
-            query = query.filter(JournalEntry.stress_level <= max_stress)
-        
+            q = q.lte("stress_level", max_stress)
         if start_date:
-            query = query.filter(JournalEntry.date >= start_date)
-        
+            q = q.gte("date", start_date.isoformat())
         if end_date:
-            query = query.filter(JournalEntry.date <= end_date)
-        
-        # Apply sorting
-        sort_field = getattr(JournalEntry, sort_by, JournalEntry.created_at)
-        if sort_order.lower() == "asc":
-            query = query.order_by(asc(sort_field))
-        else:
-            query = query.order_by(desc(sort_field))
-        
-        # Get total count
-        total = query.count()
-        
-        # Apply pagination
+            q = q.lte("date", end_date.isoformat())
+
+        desc_order = (sort_order.lower() == "desc")
+        q = q.order(sort_by, desc=desc_order)
         offset = (page - 1) * per_page
-        entries = query.offset(offset).limit(per_page).all()
+        q = q.range(offset, offset + per_page - 1)
+        resp = q.execute()
+        entries = resp.data or []
+        total = resp.count or 0
 
         # Backward compatibility: ensure updated_at is not None in responses
         # Also ensure emotions_detected is properly formatted
         for e in entries:
-            if getattr(e, "updated_at", None) is None:
+            if e.get("updated_at") is None:
+                e["updated_at"] = e.get("created_at") or datetime.utcnow().isoformat()
+            if e.get("emotions_detected") is not None and isinstance(e.get("emotions_detected"), str):
                 try:
-                    e.updated_at = e.created_at or datetime.utcnow()
+                    e["emotions_detected"] = json.loads(e["emotions_detected"])
                 except Exception:
-                    e.updated_at = datetime.utcnow()
-            
-            # Ensure emotions_detected is a list, not a string
-            if hasattr(e, 'emotions_detected') and e.emotions_detected is not None:
-                if isinstance(e.emotions_detected, str):
-                    try:
-                        e.emotions_detected = json.loads(e.emotions_detected)
-                    except (json.JSONDecodeError, TypeError):
-                        e.emotions_detected = []
+                    e["emotions_detected"] = []
         
         # Calculate pagination info
         total_pages = (total + per_page - 1) // per_page
@@ -569,17 +525,14 @@ async def get_entries(
 @app.get("/entries/{entry_id}", response_model=JournalEntryResponse)
 async def get_entry(
     entry_id: int, 
-    db: Session = Depends(get_db),
     current_user: Dict[str, Any] = Depends(get_current_user_dependency)
 ):
     """
     Get a specific journal entry by ID.
     Returns the entry only if it belongs to the authenticated user.
     """
-    entry = db.query(JournalEntry).filter(
-        JournalEntry.id == entry_id,
-        JournalEntry.user_id == current_user["id"]
-    ).first()
+    resp = supabase_db.table("journal_entries").select("*").eq("id", entry_id).eq("user_id", current_user["id"]).single().execute()
+    entry = resp.data
     if entry is None:
         raise HTTPException(status_code=404, detail="Entry not found")
     return entry
@@ -588,7 +541,6 @@ async def get_entry(
 async def update_entry(
     entry_id: int, 
     entry_update: JournalEntryUpdate, 
-    db: Session = Depends(get_db),
     current_user: Dict[str, Any] = Depends(get_current_user_dependency)
 ):
     """
@@ -603,11 +555,8 @@ async def update_entry(
     """
     try:
         # Get existing entry - ensure it belongs to the user
-        db_entry = db.query(JournalEntry).filter(
-            JournalEntry.id == entry_id,
-            JournalEntry.user_id == current_user["id"]
-        ).first()
-        if db_entry is None:
+        existing = supabase_db.table("journal_entries").select("id").eq("id", entry_id).eq("user_id", current_user["id"]).single().execute().data
+        if not existing:
             raise HTTPException(status_code=404, detail="Entry not found")
         
         # Update fields if provided
@@ -616,36 +565,29 @@ async def update_entry(
         if not update_data:
             raise HTTPException(status_code=400, detail="No fields to update")
         
-        # If content is being updated, re-analyze
+        payload = {}
         if "content" in update_data:
             analysis = analyze_journal_entry(update_data["content"])
             word_count = len(update_data["content"].split())
             emotions_detected = analysis.get("emotions_detected", [])
-            
-            # Update analysis fields
-            db_entry.sentiment_score = analysis["sentiment_score"]
-            db_entry.emotion = analysis["emotion"]
-            db_entry.emotion_confidence = analysis.get("emotion_confidence")
-            db_entry.emotions_detected = emotions_detected
-            db_entry.emotion_group = analysis.get("emotion_group")
-            db_entry.stress_level = analysis["stress_level"]
-            db_entry.word_count = word_count
-        
-        # Update basic fields
+            payload.update({
+                "sentiment_score": analysis["sentiment_score"],
+                "emotion": analysis["emotion"],
+                "emotion_confidence": analysis.get("emotion_confidence"),
+                "emotions_detected": emotions_detected,
+                "emotion_group": analysis.get("emotion_group"),
+                "stress_level": analysis["stress_level"],
+                "word_count": word_count,
+            })
         for field, value in update_data.items():
-            setattr(db_entry, field, value)
-        
-        db_entry.updated_at = datetime.utcnow()
-        
-        db.commit()
-        db.refresh(db_entry)
-        
-        return db_entry
+            payload[field] = value
+        payload["updated_at"] = datetime.utcnow().isoformat()
+        resp = supabase_db.table("journal_entries").update(payload).eq("id", entry_id).eq("user_id", current_user["id"]).select("*").single().execute()
+        return resp.data
         
     except HTTPException:
         raise
     except Exception as e:
-        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update entry: {str(e)}"
@@ -654,7 +596,6 @@ async def update_entry(
 @app.delete("/entries/{entry_id}")
 async def delete_entry(
     entry_id: int, 
-    db: Session = Depends(get_db),
     current_user: Dict[str, Any] = Depends(get_current_user_dependency)
 ):
     """
@@ -664,22 +605,16 @@ async def delete_entry(
     Only the owner can delete their entries.
     """
     try:
-        db_entry = db.query(JournalEntry).filter(
-            JournalEntry.id == entry_id,
-            JournalEntry.user_id == current_user["id"]
-        ).first()
-        if db_entry is None:
+        existing = supabase_db.table("journal_entries").select("id").eq("id", entry_id).eq("user_id", current_user["id"]).single().execute().data
+        if not existing:
             raise HTTPException(status_code=404, detail="Entry not found")
-        
-        db.delete(db_entry)
-        db.commit()
+        supabase_db.table("journal_entries").delete().eq("id", entry_id).eq("user_id", current_user["id"]).execute()
         
         return {"message": "Entry deleted successfully"}
         
     except HTTPException:
         raise
     except Exception as e:
-        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete entry: {str(e)}"
@@ -688,7 +623,6 @@ async def delete_entry(
 @app.get("/analytics/sentiment-trends")
 async def get_sentiment_trends(
     days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
-    db: Session = Depends(get_db),
     current_user: Dict[str, Any] = Depends(get_current_user_dependency)
 ):
     """
@@ -701,10 +635,8 @@ async def get_sentiment_trends(
     try:
         # Get entries from the last N days for the current user
         start_date = datetime.utcnow() - timedelta(days=days)
-        entries = db.query(JournalEntry).filter(
-            JournalEntry.user_id == current_user["id"],
-            JournalEntry.date >= start_date
-        ).all()
+        resp = supabase_db.table("journal_entries").select("*").eq("user_id", current_user["id"]).gte("date", start_date.isoformat()).execute()
+        entries = resp.data or []
         
         if not entries:
             return {
@@ -722,7 +654,11 @@ async def get_sentiment_trends(
         # Group by date and calculate averages
         daily_data = {}
         for entry in entries:
-            date_key = entry.date.date().isoformat()
+            try:
+                dt = datetime.fromisoformat(entry.get("date").replace("Z", "+00:00"))
+            except Exception:
+                dt = datetime.utcnow()
+            date_key = dt.date().isoformat()
             if date_key not in daily_data:
                 daily_data[date_key] = {
                     "date": date_key,
@@ -734,11 +670,11 @@ async def get_sentiment_trends(
                     "entry_count": 0
                 }
             
-            daily_data[date_key]["sentiment_scores"].append(entry.sentiment_score or 0)
-            daily_data[date_key]["stress_levels"].append(entry.stress_level or 0)
-            daily_data[date_key]["emotions"].append(entry.emotion or "neutral")
-            daily_data[date_key]["emotion_groups"].append(entry.emotion_group or "neutral")
-            daily_data[date_key]["word_counts"].append(entry.word_count or 0)
+            daily_data[date_key]["sentiment_scores"].append(entry.get("sentiment_score") or 0)
+            daily_data[date_key]["stress_levels"].append(entry.get("stress_level") or 0)
+            daily_data[date_key]["emotions"].append(entry.get("emotion") or "neutral")
+            daily_data[date_key]["emotion_groups"].append(entry.get("emotion_group") or "neutral")
+            daily_data[date_key]["word_counts"].append(entry.get("word_count") or 0)
             daily_data[date_key]["entry_count"] += 1
         
         # Calculate daily averages and statistics
@@ -800,7 +736,6 @@ async def get_sentiment_trends(
 @app.get("/analytics/insights")
 async def get_insights(
     days: int = Query(7, ge=1, le=30, description="Number of days to analyze for insights"),
-    db: Session = Depends(get_db),
     current_user: Dict[str, Any] = Depends(get_current_user_dependency)
 ):
     """
@@ -813,10 +748,8 @@ async def get_insights(
     try:
         # Get entries from the specified number of days for the current user
         start_date = datetime.utcnow() - timedelta(days=days)
-        entries = db.query(JournalEntry).filter(
-            JournalEntry.user_id == current_user["id"],
-            JournalEntry.date >= start_date
-        ).all()
+        resp = supabase_db.table("journal_entries").select("*").eq("user_id", current_user["id"]).gte("date", start_date.isoformat()).execute()
+        entries = resp.data or []
         
         if not entries:
             return {
@@ -828,11 +761,11 @@ async def get_insights(
             }
         
         # Analyze patterns
-        sentiments = [entry.sentiment_score or 0 for entry in entries]
-        stress_levels = [entry.stress_level or 0 for entry in entries]
-        emotions = [entry.emotion or "neutral" for entry in entries]
-        emotion_groups = [entry.emotion_group or "neutral" for entry in entries]
-        word_counts = [entry.word_count or 0 for entry in entries]
+        sentiments = [entry.get("sentiment_score") or 0 for entry in entries]
+        stress_levels = [entry.get("stress_level") or 0 for entry in entries]
+        emotions = [entry.get("emotion") or "neutral" for entry in entries]
+        emotion_groups = [entry.get("emotion_group") or "neutral" for entry in entries]
+        word_counts = [entry.get("word_count") or 0 for entry in entries]
         
         avg_sentiment = sum(sentiments) / len(sentiments)
         avg_stress = sum(stress_levels) / len(stress_levels)
@@ -955,7 +888,6 @@ async def get_insights(
 
 @app.get("/analytics/stats")
 async def get_stats(
-    db: Session = Depends(get_db),
     current_user: Dict[str, Any] = Depends(get_current_user_dependency)
 ):
     """
@@ -965,7 +897,8 @@ async def get_stats(
     """
     try:
         # Get all entries for the current user
-        all_entries = db.query(JournalEntry).filter(JournalEntry.user_id == current_user["id"]).all()
+        resp = supabase_db.table("journal_entries").select("*").eq("user_id", current_user["id"]).execute()
+        all_entries = resp.data or []
         
         if not all_entries:
             return {
@@ -979,23 +912,28 @@ async def get_stats(
         
         # Calculate basic stats
         total_entries = len(all_entries)
-        dates = [entry.date for entry in all_entries]
-        min_date = min(dates)
-        max_date = max(dates)
+        def parse_dt(s):
+            try:
+                return datetime.fromisoformat(s.replace("Z", "+00:00"))
+            except Exception:
+                return datetime.utcnow()
+        dates = [parse_dt(entry.get("date")) for entry in all_entries if entry.get("date")]
+        min_date = min(dates) if dates else datetime.utcnow()
+        max_date = max(dates) if dates else datetime.utcnow()
         
         # Emotion distribution
         emotion_counts = {}
         emotion_group_counts = {}
         for entry in all_entries:
-            emotion = entry.emotion or "neutral"
-            emotion_group = entry.emotion_group or "neutral"
+            emotion = entry.get("emotion") or "neutral"
+            emotion_group = entry.get("emotion_group") or "neutral"
             emotion_counts[emotion] = emotion_counts.get(emotion, 0) + 1
             emotion_group_counts[emotion_group] = emotion_group_counts.get(emotion_group, 0) + 1
         
         # Sentiment and stress stats
-        sentiments = [entry.sentiment_score for entry in all_entries if entry.sentiment_score is not None]
-        stress_levels = [entry.stress_level for entry in all_entries if entry.stress_level is not None]
-        word_counts = [entry.word_count for entry in all_entries if entry.word_count is not None]
+        sentiments = [entry.get("sentiment_score") for entry in all_entries if entry.get("sentiment_score") is not None]
+        stress_levels = [entry.get("stress_level") for entry in all_entries if entry.get("stress_level") is not None]
+        word_counts = [entry.get("word_count") for entry in all_entries if entry.get("word_count") is not None]
         
         return {
             "total_entries": total_entries,
@@ -1090,27 +1028,23 @@ async def analyze_with_original(entry: JournalEntryCreate):
 # User Profile Management Endpoints
 @app.get("/profile", response_model=UserProfileResponse)
 async def get_user_profile(
-    current_user: Dict[str, Any] = Depends(get_current_user_dependency),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(get_current_user_dependency)
 ):
     """
     Get current user's profile information.
     """
     try:
-        profile = db.query(UserProfile).filter(UserProfile.user_id == current_user["id"]).first()
+        resp = supabase_db.table("user_profiles").select("*").eq("user_id", current_user["id"]).single().execute()
+        profile = resp.data
         if not profile:
-            # Create profile if it doesn't exist
-            profile = UserProfile(
-                user_id=current_user["id"],
-                email=current_user["email"],
-                full_name=current_user.get("user_metadata", {}).get("full_name"),
-                display_name=current_user.get("user_metadata", {}).get("display_name"),
-                role="user"
-            )
-            db.add(profile)
-            db.commit()
-            db.refresh(profile)
-        
+            insert_payload = {
+                "user_id": current_user["id"],
+                "email": current_user.get("email"),
+                "full_name": current_user.get("user_metadata", {}).get("full_name"),
+                "display_name": current_user.get("user_metadata", {}).get("display_name"),
+                "role": "user",
+            }
+            profile = supabase_db.table("user_profiles").insert(insert_payload).select("*").single().execute().data
         return profile
     except Exception as e:
         raise HTTPException(
@@ -1121,32 +1055,22 @@ async def get_user_profile(
 @app.put("/profile", response_model=UserProfileResponse)
 async def update_user_profile(
     profile_update: UserProfileUpdate,
-    current_user: Dict[str, Any] = Depends(get_current_user_dependency),
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(get_current_user_dependency)
 ):
     """
     Update current user's profile information.
     """
     try:
-        profile = db.query(UserProfile).filter(UserProfile.user_id == current_user["id"]).first()
-        if not profile:
+        existing = supabase_db.table("user_profiles").select("id").eq("user_id", current_user["id"]).single().execute().data
+        if not existing:
             raise HTTPException(status_code=404, detail="Profile not found")
-        
-        # Update fields if provided
         update_data = profile_update.dict(exclude_unset=True)
-        for field, value in update_data.items():
-            setattr(profile, field, value)
-        
-        profile.updated_at = datetime.utcnow()
-        
-        db.commit()
-        db.refresh(profile)
-        
+        update_data["updated_at"] = datetime.utcnow().isoformat()
+        profile = supabase_db.table("user_profiles").update(update_data).eq("user_id", current_user["id"]).select("*").single().execute().data
         return profile
     except HTTPException:
         raise
     except Exception as e:
-        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update profile: {str(e)}"

@@ -8,7 +8,7 @@ import logging
 from typing import Optional, Dict, Any
 from supabase import create_client, Client
 from fastapi import HTTPException, status
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
@@ -38,19 +38,6 @@ class SupabaseAuthService:
         # Create Supabase client with service role key for backend operations
         self.supabase: Client = create_client(self.supabase_url, self.supabase_service_key)
         
-        # Create database engine for user_profiles queries
-        # Use psycopg v3 driver for SQLAlchemy
-        self.db_url = f"postgresql+psycopg://postgres:{self.supabase_db_password}@{self.supabase_db_host}:{self.supabase_db_port}/{self.supabase_db_name}"
-        connect_args = {"sslmode": "require", "connect_timeout": 5}
-        if self.supabase_db_host_ipv4:
-            connect_args["hostaddr"] = self.supabase_db_host_ipv4
-        self.engine = create_engine(
-            self.db_url,
-            connect_args=connect_args,
-            pool_pre_ping=True,
-            pool_recycle=300
-        )
-        
         logger.info("Supabase auth service initialized with user_profiles support")
     
     def get_user_from_profiles_table(self, user_id: str) -> Optional[Dict[str, Any]]:
@@ -64,38 +51,33 @@ class SupabaseAuthService:
             Optional[Dict]: User information if found
         """
         try:
-            with self.engine.connect() as conn:
-                result = conn.execute(text("""
-                    SELECT id, user_id, email, full_name, display_name, role, is_active, created_at, updated_at, last_login
-                    FROM user_profiles 
-                    WHERE user_id = :user_id
-                """), {"user_id": user_id})
-                
-                row = result.fetchone()
-                if row:
-                    logger.info(f"Found user in profiles table: {row[1]}")
-                    return {
-                        "id": row[1],  # user_id from database
-                        "sub": row[1],  # user_id for compatibility
-                        "email": row[2],
-                        "full_name": row[3],
-                        "display_name": row[4],
-                        "role": row[5],
-                        "is_active": row[6],
-                        "created_at": row[7],
-                        "updated_at": row[8],
-                        "last_login": row[9],
-                        "user_metadata": {},
-                        "app_metadata": {"role": row[5]},
-                        "aud": "authenticated",
-                        "exp": None,  # We'll handle expiration separately
-                    }
-                else:
-                    logger.warning(f"No user found in profiles table for user_id: {user_id}")
-                    return None
-                    
+            response = self.supabase.table("user_profiles").select(
+                "id,user_id,email,full_name,display_name,role,is_active,created_at,updated_at,last_login"
+            ).eq("user_id", user_id).single().execute()
+            data = response.data
+            if data:
+                logger.info(f"Found user in profiles table: {data.get('user_id')}")
+                return {
+                    "id": data.get("user_id"),
+                    "sub": data.get("user_id"),
+                    "email": data.get("email"),
+                    "full_name": data.get("full_name"),
+                    "display_name": data.get("display_name"),
+                    "role": data.get("role"),
+                    "is_active": data.get("is_active"),
+                    "created_at": data.get("created_at"),
+                    "updated_at": data.get("updated_at"),
+                    "last_login": data.get("last_login"),
+                    "user_metadata": {},
+                    "app_metadata": {"role": data.get("role")},
+                    "aud": "authenticated",
+                    "exp": None,
+                }
+            else:
+                logger.warning(f"No user found in profiles table for user_id: {user_id}")
+                return None
         except Exception as e:
-            logger.error(f"Error querying user_profiles table: {e}")
+            logger.error(f"Error querying user_profiles table via Supabase: {e}")
             return None
     
     def get_user_from_token(self, token: str) -> Optional[Dict[str, Any]]:
