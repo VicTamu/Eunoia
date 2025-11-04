@@ -27,6 +27,7 @@ class SupabaseAuthService:
         self.supabase_db_host = os.environ.get('SUPABASE_DB_HOST', 'db.wglvjoncodlrvkgleyvv.supabase.co')
         self.supabase_db_port = os.environ.get('SUPABASE_DB_PORT', '5432')
         self.supabase_db_name = os.environ.get('SUPABASE_DB_NAME', 'postgres')
+        self.supabase_db_host_ipv4 = os.environ.get('SUPABASE_DB_HOST_IPV4')  # optional
         
         if not self.supabase_url or not self.supabase_service_key or not self.supabase_anon_key:
             raise ValueError("SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and SUPABASE_ANON_KEY must be set")
@@ -40,9 +41,12 @@ class SupabaseAuthService:
         # Create database engine for user_profiles queries
         # Use psycopg v3 driver for SQLAlchemy
         self.db_url = f"postgresql+psycopg://postgres:{self.supabase_db_password}@{self.supabase_db_host}:{self.supabase_db_port}/{self.supabase_db_name}"
+        connect_args = {"sslmode": "require", "connect_timeout": 5}
+        if self.supabase_db_host_ipv4:
+            connect_args["hostaddr"] = self.supabase_db_host_ipv4
         self.engine = create_engine(
             self.db_url,
-            connect_args={"sslmode": "require", "connect_timeout": 5},
+            connect_args=connect_args,
             pool_pre_ping=True,
             pool_recycle=300
         )

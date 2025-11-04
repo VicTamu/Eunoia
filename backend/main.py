@@ -32,6 +32,7 @@ SUPABASE_DB_PASSWORD = os.environ.get('SUPABASE_DB_PASSWORD', 'your-db-password'
 SUPABASE_DB_HOST = os.environ.get('SUPABASE_DB_HOST', 'db.wglvjoncodlrvkgleyvv.supabase.co')
 SUPABASE_DB_PORT = os.environ.get('SUPABASE_DB_PORT', '5432')
 SUPABASE_DB_NAME = os.environ.get('SUPABASE_DB_NAME', 'postgres')
+SUPABASE_DB_HOST_IPV4 = os.environ.get('SUPABASE_DB_HOST_IPV4')  # optional, only used if provided
 
 # Construct PostgreSQL connection string (psycopg v3 driver)
 SQLALCHEMY_DATABASE_URL = f"postgresql+psycopg://postgres:{SUPABASE_DB_PASSWORD}@{SUPABASE_DB_HOST}:{SUPABASE_DB_PORT}/{SUPABASE_DB_NAME}"
@@ -45,9 +46,12 @@ if not SUPABASE_URL or not SUPABASE_DB_PASSWORD:
     engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 else:
     print("Using Supabase PostgreSQL database")
+    connect_args = {"sslmode": "require", "connect_timeout": 5}
+    if SUPABASE_DB_HOST_IPV4:
+        connect_args["hostaddr"] = SUPABASE_DB_HOST_IPV4
     engine = create_engine(
         SQLALCHEMY_DATABASE_URL,
-        connect_args={"sslmode": "require", "connect_timeout": 5},
+        connect_args=connect_args,
         pool_pre_ping=True,
         pool_recycle=300
     )
@@ -247,18 +251,22 @@ class PaginatedResponse(BaseModel):
 app = FastAPI(title="Eunoia Journal API", version="1.0.0")
 
 # CORS middleware
+frontend_origin = os.environ.get("FRONTEND_ORIGIN")
+cors_allow_origin_regex = os.environ.get("CORS_ALLOW_ORIGIN_REGEX")  # optional regex (e.g., ^https://.*\.vercel\.app$)
+
+allow_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost",
+    "http://127.0.0.1",
+]
+if frontend_origin:
+    allow_origins.append(frontend_origin)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost",
-        "http://127.0.0.1",
-        # Add your Vercel domain here (will be updated after deployment)
-        "https://your-project-name.vercel.app",
-        # Add wildcard for Vercel preview deployments
-        "https://*.vercel.app",
-    ],
+    allow_origins=allow_origins,
+    allow_origin_regex=cors_allow_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
