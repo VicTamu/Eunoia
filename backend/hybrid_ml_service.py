@@ -3,9 +3,9 @@ import logging
 from typing import Dict, Optional
 from pathlib import Path
 from dotenv import load_dotenv
-from ml_service import analyze_journal_entry as analyze_original
-from agno_ml_service import analyze_journal_entry_agno
-from error_handler import ErrorHandler, ErrorFactory, ErrorCode, ErrorSeverity, error_handler, error_factory
+from .ml_service import analyze_journal_entry as analyze_original
+from .agno_ml_service import analyze_journal_entry_agno
+from .error_handler import ErrorHandler, ErrorFactory, ErrorCode, ErrorSeverity, error_handler, error_factory
 
 # Load environment variables from .env file
 env_path = Path(__file__).parent.parent / '.env'
