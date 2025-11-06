@@ -13,10 +13,10 @@ import json
 import re
 from dotenv import load_dotenv
 from sqlalchemy.exc import OperationalError
-from hybrid_ml_service import analyze_journal_entry, hybrid_service
-from supabase_auth_service import get_current_user, require_auth, auth_service
+from .hybrid_ml_service import analyze_journal_entry, hybrid_service
+from .supabase_auth_service import get_current_user, require_auth, auth_service
 from pathlib import Path
-from error_handler import (
+from .error_handler import (
     ErrorHandler, ErrorFactory, ErrorCode, ErrorSeverity, 
     handle_errors, error_handler, error_factory
 )
