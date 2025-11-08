@@ -2,9 +2,8 @@ import re
 import logging
 from typing import Dict, List, Tuple
 import random
-import numpy as np
 import os
-from error_handler import ErrorHandler, ErrorFactory, ErrorCode, ErrorSeverity, error_handler, error_factory
+from .error_handler import ErrorHandler, ErrorFactory, ErrorCode, ErrorSeverity, error_handler, error_factory
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
