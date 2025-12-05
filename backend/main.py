@@ -21,6 +21,9 @@ from .error_handler import (
     handle_errors, error_handler, error_factory
 )
 
+import logging
+logger = logging.getLogger(__name__)
+
 # Database setup
 # Load environment variables
 from dotenv import load_dotenv
@@ -272,6 +275,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Log effective CORS configuration at startup
+logger.info("CORS configuration:")
+logger.info(f"  - allow_origins: {allow_origins}")
+logger.info(f"  - allow_origin_regex: {cors_allow_origin_regex}")
+logger.info("Note: allow_credentials=True, allow_methods=['*'], allow_headers=['*']")
+
 # Supabase client (service role) for database operations
 supabase_db = auth_service.supabase
 
@@ -392,8 +401,9 @@ async def create_entry(
             "stress_level": analysis["stress_level"],
             "word_count": word_count,
         }
-        resp = supabase_db.table("journal_entries").insert(payload).select("*").single().execute()
-        return resp.data
+        resp = supabase_db.table("journal_entries").insert(payload).execute()
+        inserted = resp.data[0] if isinstance(resp.data, list) else resp.data
+        return inserted
         
     except Exception as e:
         error = error_factory.database_error(
