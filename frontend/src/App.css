@@ -11,6 +11,15 @@
   transition: all 0.2s ease-in-out;
 }
 
+/* Respect reduced motion preferences globally */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

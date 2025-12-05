@@ -35,7 +35,16 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
 
     // Apply theme to document root
     const root = document.documentElement;
-    root.className = `theme-${theme}`;
+    // Remove any existing theme-* class and add the current one without
+    // disturbing other classes that might be present on <html>.
+    const currentThemeClass = `theme-${theme}`;
+    const existingThemeClass = Array.from(root.classList).find((c) => c.startsWith('theme-'));
+    if (existingThemeClass && existingThemeClass !== currentThemeClass) {
+      root.classList.remove(existingThemeClass);
+    }
+    if (!root.classList.contains(currentThemeClass)) {
+      root.classList.add(currentThemeClass);
+    }
 
     // Update meta theme-color for mobile browsers
     const metaThemeColor = document.querySelector('meta[name="theme-color"]');
