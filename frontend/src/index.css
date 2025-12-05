@@ -77,6 +77,15 @@ body {
   background-attachment: fixed;
 }
 
+/* Optional utility to show aurora on containers that cover the body */
+.bg-aurora {
+  background-image:
+    radial-gradient(1200px 600px at 10% 0%, var(--bg-veil-1), transparent 60%),
+    radial-gradient(1000px 500px at 90% 20%, var(--bg-veil-2), transparent 60%),
+    radial-gradient(900px 500px at 50% 120%, var(--bg-veil-3), transparent 60%);
+  background-attachment: fixed;
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
@@ -404,7 +413,7 @@ textarea:focus-visible {
   background-color: #fefce8;
 }
 .bg-gray-50 {
-  background-color: #f9fafb;
+  background-color: var(--bg-primary);
 }
 
 .text-blue-800 {
@@ -481,6 +490,7 @@ textarea:focus-visible {
 /* Line clamp utility */
 .line-clamp-3 {
   display: -webkit-box;
+  line-clamp: 3;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
