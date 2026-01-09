@@ -4,6 +4,7 @@ from typing import Dict, Optional
 from pathlib import Path
 from dotenv import load_dotenv
 from .ml_service import analyze_journal_entry as analyze_original
+from .ml_service import analyzer as original_analyzer
 from .agno_ml_service import analyze_journal_entry_agno
 from .error_handler import ErrorHandler, ErrorFactory, ErrorCode, ErrorSeverity, error_handler, error_factory
 
@@ -124,11 +125,17 @@ class HybridMLService:
         return {
             "agno_available": self.hf_token_available,
             "original_available": True,
+            # Reflect runtime status more precisely
+            "original_env_enabled": getattr(original_analyzer, "models_enabled", False),
+            "original_sentiment_loaded": bool(getattr(original_analyzer, "sentiment_pipeline", None)),
+            "original_emotion_loaded": bool(getattr(original_analyzer, "emotion_pipeline", None)),
+            "original_goemotions_loaded": bool(getattr(original_analyzer, "goemotions_pipeline", None)),
             "current_method": "agno" if (self.use_agno and self.hf_token_available) else "original",
             "agno_enabled": self.use_agno,
             "environment_variables": {
                 "EUNOIA_USE_AGNO": os.environ.get('EUNOIA_USE_AGNO', '0'),
-                "HF_TOKEN": "***" if self.hf_token_available else "Not set"
+                "HF_TOKEN": "***" if self.hf_token_available else "Not set",
+                "EUNOIA_ENABLE_MODELS": os.environ.get('EUNOIA_ENABLE_MODELS', '0'),
             }
         }
     
