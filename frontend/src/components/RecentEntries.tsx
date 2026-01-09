@@ -30,9 +30,9 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
         created_at: iso(daysAgo(0)),
         updated_at: iso(daysAgo(0)),
         content: 'Took a long walk today and felt surprisingly relaxed. Grateful for the sunshine.',
-        sentiment_score: 0.6,
+        sentiment_score: 8.2,
         emotion: 'joy',
-        stress_level: 0.2,
+        stress_level: 2.0,
       },
       {
         id: -2,
@@ -40,9 +40,9 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
         created_at: iso(daysAgo(1)),
         updated_at: iso(daysAgo(1)),
         content: 'Work was hectic with tight deadlines, but I managed to complete the tasks.',
-        sentiment_score: 0.1,
+        sentiment_score: 5.2,
         emotion: 'nervousness',
-        stress_level: 0.6,
+        stress_level: 6.5,
       },
       {
         id: -3,
@@ -50,9 +50,9 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
         created_at: iso(daysAgo(2)),
         updated_at: iso(daysAgo(2)),
         content: 'Felt a bit down earlier, but a chat with a friend helped a lot.',
-        sentiment_score: -0.1,
+        sentiment_score: 4.0,
         emotion: 'sadness',
-        stress_level: 0.4,
+        stress_level: 4.0,
       },
     ];
   }, []);
@@ -129,16 +129,23 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
 
   const getStressLevel = (level: number | null) => {
     if (level === null) return 'Unknown';
-    if (level > 0.7) return 'High';
-    if (level > 0.4) return 'Medium';
+    if (level > 7) return 'High';
+    if (level > 4) return 'Medium';
     return 'Low';
   };
 
   const getStressColor = (level: number | null) => {
     if (level === null) return 'text-gray-500';
-    if (level > 0.7) return 'text-red-600';
-    if (level > 0.4) return 'text-yellow-600';
+    if (level > 7) return 'text-red-600';
+    if (level > 4) return 'text-yellow-600';
     return 'text-green-600';
+  };
+
+  const getMoodLabel = (score: number | null) => {
+    if (score === null) return 'Unknown';
+    if (score >= 7) return 'Positive';
+    if (score <= 3) return 'Negative';
+    return 'Neutral';
   };
 
   // Show loading if auth is still loading or data is loading
@@ -233,7 +240,8 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
                   <Brain className="h-4 w-4 text-purple-600" />
                   <span className="text-gray-600">
                     Mood:{' '}
-                    {entry.sentiment_score !== null ? entry.sentiment_score.toFixed(2) : 'N/A'}
+                    {entry.sentiment_score !== null ? `${entry.sentiment_score.toFixed(1)}/10` : 'N/A'}{' '}
+                    ({getMoodLabel(entry.sentiment_score)})
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
@@ -243,7 +251,11 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
                   </span>
                 </div>
               </div>
-              <div className="text-gray-500">{entry.emotion || 'neutral'}</div>
+            <div className="text-gray-500">
+              {(entry.emotion && entry.emotion.toLowerCase() !== 'neutral'
+                ? entry.emotion
+                : (entry as any).emotions_detected?.[0]?.[0]) || 'neutral'}
+            </div>
             </div>
           </div>
         ))}
