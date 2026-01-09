@@ -89,10 +89,10 @@ class AgnoSentimentAnalyzer:
             return self._fallback_analysis(text)
     
     def _analyze_sentiment_agno(self, text: str) -> Dict:
-        """Analyze sentiment using HuggingFace Inference API"""
+        """Analyze sentiment using HuggingFace Inference API and return score on 0-10 scale"""
         try:
             if not self.agno_enabled:
-                return {"label": "neutral", "score": 0.0, "confidence": 0.5}
+                return {"label": "neutral", "score": 5.0, "confidence": 0.5}
             
             # Use HuggingFace Inference API for sentiment analysis
             model_url = f"{self.api_url}/cardiffnlp/twitter-roberta-base-sentiment-latest"
@@ -117,27 +117,29 @@ class AgnoSentimentAnalyzer:
                 }
                 
                 sentiment_label = label_mapping.get(best_result['label'], 'neutral')
-                
-                # Convert score to -1 to 1 range
-                if sentiment_label == 'negative':
-                    score = -best_result['score']
-                elif sentiment_label == 'positive':
-                    score = best_result['score']
-                else:  # neutral
-                    score = 0.0
+                confidence = float(best_result['score'])
+
+                # Normalize to 0-10 scale to match frontend/dashboard expectations
+                # Positive: 5 -> 10, Negative: 5 -> 0, Neutral: 5.0
+                if sentiment_label == 'positive':
+                    normalized_score = 5.0 + (confidence * 5.0)
+                elif sentiment_label == 'negative':
+                    normalized_score = 5.0 - (confidence * 5.0)
+                else:
+                    normalized_score = 5.0
                 
                 return {
                     "label": sentiment_label,
-                    "score": round(score, 3),
-                    "confidence": round(best_result['score'], 3)
+                    "score": round(normalized_score, 3),
+                    "confidence": round(confidence, 3)
                 }
             else:
                 logger.error(f"HuggingFace API error: {response.status_code}")
-                return {"label": "neutral", "score": 0.0, "confidence": 0.5}
+                return {"label": "neutral", "score": 5.0, "confidence": 0.5}
                 
         except Exception as e:
             logger.error(f"Error in sentiment analysis: {e}")
-            return {"label": "neutral", "score": 0.0, "confidence": 0.5}
+            return {"label": "neutral", "score": 5.0, "confidence": 0.5}
     
     def _analyze_emotion_agno(self, text: str) -> Dict:
         """Analyze emotions using HuggingFace Inference API"""
@@ -240,33 +242,37 @@ class AgnoSentimentAnalyzer:
         return insights[:3]
     
     def _calculate_stress_level(self, text: str, sentiment_result: Dict, emotion_result: Dict) -> float:
-        """Calculate stress level based on analysis results"""
+        """Calculate stress level based on analysis results and return 0-10 scale"""
         try:
             # Base stress from sentiment
-            sentiment_stress = 0.0
+            sentiment_stress_unit = 0.0
             if sentiment_result["label"] == "negative":
-                sentiment_stress = abs(sentiment_result["score"]) * 0.5
+                # Use confidence where available (fall back to distance from neutral on 0-10 scale)
+                conf = float(sentiment_result.get("confidence", 0.6))
+                sentiment_stress_unit = min(1.0, conf)
             elif sentiment_result["label"] == "positive":
-                sentiment_stress = 0.1
+                sentiment_stress_unit = 0.1
             
             # Stress from emotions
-            emotion_stress = 0.0
+            emotion_stress_unit = 0.0
             if emotion_result["emotion_group"] == "negative":
-                emotion_stress = 0.3
+                emotion_stress_unit = 0.3
             elif emotion_result["emotion_group"] == "positive":
-                emotion_stress = 0.1
+                emotion_stress_unit = 0.1
             
             # Keyword-based stress indicators
             stress_keywords = ['stressed', 'anxious', 'worried', 'overwhelmed', 'pressure', 'deadline']
-            keyword_stress = sum(0.1 for keyword in stress_keywords if keyword.lower() in text.lower())
+            keyword_stress_unit = sum(0.1 for keyword in stress_keywords if keyword.lower() in text.lower())
             
             # Combine all stress factors
-            total_stress = min(sentiment_stress + emotion_stress + keyword_stress, 1.0)
-            return round(total_stress, 2)
+            total_stress_unit = min(sentiment_stress_unit + emotion_stress_unit + keyword_stress_unit, 1.0)
+
+            # Convert 0-1 unit scale to 0-10 display scale
+            return round(total_stress_unit * 10.0, 1)
             
         except Exception as e:
             logger.error(f"Error calculating stress level: {e}")
-            return 0.3
+            return 3.0
     
     # def _get_embeddings(self, text: str) -> Optional[List[float]]:
     #     """Get text embeddings for semantic analysis"""
@@ -308,15 +314,15 @@ class AgnoSentimentAnalyzer:
         }
     
     def _fallback_analysis(self, text: str) -> Dict:
-        """Fallback analysis when Agno is not available"""
+        """Fallback analysis when Agno is not available (normalized to app scales)"""
         return {
-            "sentiment_score": 0.0,
+            "sentiment_score": 5.0,
             "sentiment_label": "neutral",
             "emotion": "neutral",
             "emotion_confidence": 0.5,
             "emotions_detected": [["neutral", 0.5]],
             "emotion_group": "neutral",
-            "stress_level": 0.3,
+            "stress_level": 3.0,
             "insights": ["Thank you for sharing your thoughts."],
             "embeddings": None,
             "analysis_method": "fallback",
