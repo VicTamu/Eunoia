@@ -61,21 +61,7 @@ An AI-powered journaling web application that analyzes your daily entries for se
    npm start
    ```
    The app will be available at `http://localhost:3000`
-
-### 🚀 One-Click Startup (Windows)
-
-For Windows users, you can use the provided batch file for easy startup:
-
-```bash
-# Double-click START_EUNOIA.bat or run:
-START_EUNOIA.bat
-```
-
-This will automatically:
-- Check dependencies
-- Install required packages
-- Start both backend and frontend servers
-- Open the application in your browser
+ 
 
 ## 📱 Usage
 
@@ -130,8 +116,6 @@ Eunoia/
 │   ├── public/                   # Static assets
 │   ├── build/                    # Production build
 │   └── package.json              # Node.js dependencies
-├── start_eunoia.py               # Unified startup script
-├── START_EUNOIA.bat              # Windows batch file
 ├── env.example                   # Environment template
 ├── SUPABASE_SETUP.md             # Supabase setup guide
 └── README.md
