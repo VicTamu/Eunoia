@@ -96,7 +96,11 @@ class AgnoSentimentAnalyzer:
             
             # Use HuggingFace Inference API for sentiment analysis
             model_url = f"{self.api_url}/cardiffnlp/twitter-roberta-base-sentiment-latest"
-            payload = {"inputs": text}
+            payload = {
+                "inputs": text,
+                "parameters": {"top_k": 3},
+                "options": {"wait_for_model": True},
+            }
             
             response = requests.post(model_url, headers=self.headers, json=payload, timeout=30)
             
@@ -152,38 +156,54 @@ class AgnoSentimentAnalyzer:
                     "emotion_group": "neutral"
                 }
             
-            # Use HuggingFace Inference API for emotion analysis
-            model_url = f"{self.api_url}/j-hartmann/emotion-english-distilroberta-base"
-            payload = {"inputs": text}
+            # Use HuggingFace Inference API for emotion analysis (GoEmotions)
+            # GoEmotions offers finer-grained multi-label emotions and tends to improve perceived accuracy
+            model_url = f"{self.api_url}/SamLowe/roberta-base-go_emotions"
+            payload = {
+                "inputs": text,
+                # Request multiple top emotions to better capture nuanced states
+                "parameters": {"top_k": 6},
+                "options": {"wait_for_model": True},
+            }
             
             response = requests.post(model_url, headers=self.headers, json=payload, timeout=30)
             
             if response.status_code == 200:
                 results = response.json()
-                
-                # Get top emotions (limit to top 5)
-                top_emotions = sorted(results[0], key=lambda x: x['score'], reverse=True)[:5]
-                
-                # Find the primary emotion
-                primary_emotion = top_emotions[0]
-                primary_label = primary_emotion['label'].lower()
-                
-                # Map emotions to groups
-                positive_emotions = ['joy', 'love', 'optimism', 'excitement', 'gratitude', 'pride', 'amusement']
-                negative_emotions = ['sadness', 'anger', 'fear', 'disgust', 'shame', 'guilt', 'disappointment', 'embarrassment']
-                
+
+                # HF Inference returns list of dicts for top_k classification
+                candidates = results[0] if isinstance(results, list) else results
+                # Normalize to list
+                if isinstance(candidates, dict):
+                    candidates = [candidates]
+
+                # Keep meaningful emotions (threshold)
+                filtered = [c for c in candidates if float(c.get("score", 0.0)) >= 0.1]
+                # Sort by score desc and cap to 5
+                filtered.sort(key=lambda x: x.get("score", 0.0), reverse=True)
+                top_emotions = filtered[:5] if filtered else (candidates[:1] if candidates else [])
+
+                # Primary emotion
+                primary = top_emotions[0] if top_emotions else {"label": "neutral", "score": 0.5}
+                primary_label = str(primary.get("label", "neutral")).lower()
+                primary_score = float(primary.get("score", 0.5))
+
+                # Emotion grouping (broad buckets)
+                positive_emotions = ['admiration','amusement','approval','caring','excitement',
+                                     'gratitude','joy','love','optimism','pride','relief']
+                negative_emotions = ['anger','annoyance','disappointment','disapproval','disgust',
+                                     'embarrassment','fear','grief','nervousness','remorse','sadness','shame','guilt']
                 emotion_group = "neutral"
-                if any(pos in primary_label for pos in positive_emotions):
+                if primary_label in positive_emotions:
                     emotion_group = "positive"
-                elif any(neg in primary_label for neg in negative_emotions):
+                elif primary_label in negative_emotions:
                     emotion_group = "negative"
-                
-                # Format all emotions
-                all_emotions = [[emotion['label'].lower(), round(emotion['score'], 3)] for emotion in top_emotions]
+
+                all_emotions = [[str(e.get("label","")).lower(), round(float(e.get("score",0.0)), 3)] for e in top_emotions]
                 
                 return {
                     "primary_emotion": primary_label,
-                    "confidence": round(primary_emotion['score'], 3),
+                    "confidence": round(primary_score, 3),
                     "all_emotions": all_emotions,
                     "emotion_group": emotion_group
                 }
