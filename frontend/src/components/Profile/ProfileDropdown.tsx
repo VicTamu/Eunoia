@@ -75,7 +75,7 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut }) => {
           <div className="profile-trigger-avatar">{getInitials()}</div>
           <div className="profile-trigger-copy">
             <span className="profile-trigger-name">{getDisplayName()}</span>
-            <span className="profile-trigger-subtitle">Workspace</span>
+            <span className="profile-trigger-subtitle">Reflection Space</span>
           </div>
           <ChevronDown
             className={`h-4 w-4 profile-trigger-chevron ${isOpen ? 'rotate-180' : ''}`}

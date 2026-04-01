@@ -141,12 +141,14 @@
 
 .profile-menu-shell {
   position: relative;
+  min-width: 240px;
 }
 
 .profile-trigger {
   display: inline-flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
   min-height: 52px;
   padding: 8px 12px 8px 8px;
   border: 1px solid var(--toolbar-border);
@@ -155,6 +157,7 @@
   color: var(--heading-strong);
   box-shadow: 0 8px 18px var(--toolbar-shadow);
   cursor: pointer;
+  justify-content: space-between;
 }
 
 .profile-trigger-open {

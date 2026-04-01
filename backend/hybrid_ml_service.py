@@ -25,8 +25,11 @@ class HybridMLService:
     
     def __init__(self):
         """Initialize the hybrid ML service"""
-        self.use_agno = os.environ.get('EUNOIA_USE_AGNO', '0') in ('1', 'true', 'True')
         self.hf_token_available = bool(os.environ.get('HF_TOKEN'))
+        self.force_original = os.environ.get('EUNOIA_FORCE_ORIGINAL', '0') in ('1', 'true', 'True')
+        # Use the richer AI-backed analysis whenever a Hugging Face token is available.
+        # If we need the legacy path for debugging, EUNOIA_FORCE_ORIGINAL=1 becomes the explicit opt-out.
+        self.use_agno = self.hf_token_available and not self.force_original
         
         logger.info(f"Hybrid ML Service initialized:")
         logger.info(f"  - Agno enabled: {self.use_agno}")
@@ -133,7 +136,8 @@ class HybridMLService:
             "current_method": "agno" if (self.use_agno and self.hf_token_available) else "original",
             "agno_enabled": self.use_agno,
             "environment_variables": {
-                "EUNOIA_USE_AGNO": os.environ.get('EUNOIA_USE_AGNO', '0'),
+                "EUNOIA_USE_AGNO": os.environ.get('EUNOIA_USE_AGNO', 'auto'),
+                "EUNOIA_FORCE_ORIGINAL": os.environ.get('EUNOIA_FORCE_ORIGINAL', '0'),
                 "HF_TOKEN": "***" if self.hf_token_available else "Not set",
                 "EUNOIA_ENABLE_MODELS": os.environ.get('EUNOIA_ENABLE_MODELS', '0'),
             }
