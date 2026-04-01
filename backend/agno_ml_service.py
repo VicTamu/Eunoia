@@ -258,8 +258,8 @@ class AgnoSentimentAnalyzer:
             if isinstance(item, (list, tuple)) and len(item) >= 2:
                 emotions_detected.append([str(item[0]).lower(), round(float(item[1]), 3)])
 
-        sentiment_score = round(max(0.0, min(10.0, float(parsed.get("sentiment_score", 5.0)))), 3)
-        stress_level = round(max(0.0, min(10.0, float(parsed.get("stress_level", 3.0)))), 3)
+        raw_sentiment_score = float(parsed.get("sentiment_score", 5.0))
+        raw_stress_level = float(parsed.get("stress_level", 3.0))
         emotion_confidence = round(max(0.0, min(1.0, float(parsed.get("emotion_confidence", 0.6)))), 3)
         analysis_confidence = round(max(0.0, min(1.0, float(parsed.get("analysis_confidence", 0.65)))), 3)
         sentiment_label = str(parsed.get("sentiment_label", "neutral")).lower()
@@ -277,6 +277,20 @@ class AgnoSentimentAnalyzer:
             emotion_group = sentiment_label
         if not emotions_detected:
             emotions_detected = [[emotion, emotion_confidence]]
+        sentiment_score = self._normalize_llm_scale(
+            raw_value=raw_sentiment_score,
+            label=sentiment_label,
+            is_stress=False,
+        )
+        stress_level = self._normalize_llm_scale(
+            raw_value=raw_stress_level,
+            label=emotion_group,
+            is_stress=True,
+        )
+        if sentiment_label not in {"positive", "neutral", "negative"}:
+            sentiment_label = (
+                "positive" if sentiment_score >= 6.2 else "negative" if sentiment_score <= 4.2 else "neutral"
+            )
         if not insights:
             insights = self._get_fallback_insights(
                 {"label": sentiment_label, "score": sentiment_score, "confidence": analysis_confidence},
@@ -295,6 +309,18 @@ class AgnoSentimentAnalyzer:
             "embeddings": None,
             "analysis_confidence": analysis_confidence,
         }
+
+    def _normalize_llm_scale(self, raw_value: float, label: str, is_stress: bool) -> float:
+        bounded = max(0.0, raw_value)
+        if bounded <= 1.0:
+            if is_stress:
+                return round(bounded * 10.0, 3)
+            if label == "positive":
+                return round(5.0 + (bounded * 5.0), 3)
+            if label == "negative":
+                return round(5.0 - (bounded * 5.0), 3)
+            return 5.0
+        return round(min(10.0, bounded), 3)
 
     def _count_weighted_cues(self, text: str, cues: Dict[str, float]) -> float:
         text_lower = text.lower()
