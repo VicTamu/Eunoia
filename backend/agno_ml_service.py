@@ -92,6 +92,28 @@ class AgnoSentimentAnalyzer:
             "disgust": -1.0,
             "embarrassment": -0.7,
         }
+        self.emotion_aliases = {
+            "hope": "hopeful",
+            "hopefulness": "hopeful",
+            "optimistic": "optimism",
+            "joyful": "joy",
+            "grateful": "gratitude",
+            "stressed": "nervousness",
+            "stress": "nervousness",
+            "anxious": "nervousness",
+            "anxiety": "nervousness",
+            "fearful": "fear",
+            "angry": "anger",
+            "sad": "sadness",
+            "empathetic": "caring",
+            "empathy": "caring",
+            "calmness": "calm",
+            "overwhelm": "nervousness",
+            "overwhelmed": "nervousness",
+            "burnout": "sadness",
+            "positive": "joy",
+            "negative": "sadness",
+        }
         self.stress_weights = {
             "fear": 4.0,
             "nervousness": 3.8,
@@ -258,7 +280,8 @@ class AgnoSentimentAnalyzer:
         emotions_detected: List[List[object]] = []
         for item in emotions_raw[:4]:
             if isinstance(item, (list, tuple)) and len(item) >= 2:
-                emotions_detected.append([str(item[0]).lower(), round(float(item[1]), 3)])
+                normalized_emotion = self._normalize_emotion_label(str(item[0]))
+                emotions_detected.append([normalized_emotion, round(float(item[1]), 3)])
 
         raw_sentiment_score = float(parsed.get("sentiment_score", 5.0))
         raw_stress_level = float(parsed.get("stress_level", 3.0))
@@ -266,19 +289,19 @@ class AgnoSentimentAnalyzer:
         analysis_confidence = round(max(0.0, min(1.0, float(parsed.get("analysis_confidence", 0.65)))), 3)
         sentiment_label = str(parsed.get("sentiment_label", "neutral")).lower()
         emotion_group = str(parsed.get("emotion_group", "neutral")).lower()
-        emotion = str(parsed.get("emotion", "neutral")).lower()
+        emotion = self._normalize_emotion_label(str(parsed.get("emotion", "neutral")))
         insights = [
             str(item).strip()
             for item in (parsed.get("insights", []) or [])
             if str(item).strip()
         ][:3]
 
-        if sentiment_label not in {"positive", "neutral", "negative"}:
-            sentiment_label = "positive" if sentiment_score >= 6.2 else "negative" if sentiment_score <= 4.2 else "neutral"
-        if emotion_group not in {"positive", "neutral", "negative"}:
-            emotion_group = sentiment_label
         if not emotions_detected:
             emotions_detected = [[emotion, emotion_confidence]]
+        emotions_detected = self._normalize_detected_emotions(emotions_detected)
+        top_emotion = str(emotions_detected[0][0]).lower()
+        if top_emotion != "neutral":
+            emotion = top_emotion
         sentiment_score = self._normalize_llm_scale(
             raw_value=raw_sentiment_score,
             label=sentiment_label,
@@ -293,6 +316,11 @@ class AgnoSentimentAnalyzer:
             sentiment_label = (
                 "positive" if sentiment_score >= 6.2 else "negative" if sentiment_score <= 4.2 else "neutral"
             )
+        inferred_group = self._infer_emotion_group(emotion)
+        if emotion_group not in {"positive", "neutral", "negative"}:
+            emotion_group = inferred_group or sentiment_label
+        elif inferred_group != "neutral" and emotion_group != inferred_group:
+            emotion_group = inferred_group
         if not insights:
             insights = self._get_fallback_insights(
                 {"label": sentiment_label, "score": sentiment_score, "confidence": analysis_confidence},
@@ -316,11 +344,17 @@ class AgnoSentimentAnalyzer:
         text_lower = text.lower()
         sentiment_label = str(analysis.get("sentiment_label", "neutral")).lower()
         emotion_group = str(analysis.get("emotion_group", sentiment_label)).lower()
-        primary_emotion = str(analysis.get("emotion", "neutral")).lower()
+        primary_emotion = self._normalize_emotion_label(str(analysis.get("emotion", "neutral")))
         emotion_confidence = float(analysis.get("emotion_confidence", 0.6))
         raw_sentiment = float(analysis.get("sentiment_score", 5.0))
         raw_stress = float(analysis.get("stress_level", 3.0))
-        emotions = analysis.get("emotions_detected", []) or []
+        emotions = self._normalize_detected_emotions(analysis.get("emotions_detected", []) or [])
+
+        if emotions and primary_emotion != emotions[0][0]:
+            primary_emotion = str(emotions[0][0]).lower()
+            emotion_confidence = max(emotion_confidence, float(emotions[0][1]))
+            analysis["emotion"] = primary_emotion
+            analysis["emotion_confidence"] = round(min(0.98, emotion_confidence), 3)
 
         positive_bias = self._count_weighted_cues(text_lower, self.positive_cues)
         negative_bias = self._count_weighted_cues(text_lower, self.negative_cues)
@@ -346,7 +380,12 @@ class AgnoSentimentAnalyzer:
         else:
             sentiment_score += emotion_bias * 0.6
 
-        sentiment_score = round(max(0.0, min(10.0, sentiment_score)), 3)
+        if primary_emotion in {"joy", "gratitude", "relief", "hopeful", "optimism", "caring"}:
+            sentiment_score = min(sentiment_score, 9.4)
+        if primary_emotion in {"anger", "fear", "nervousness", "grief", "sadness", "disappointment", "remorse"}:
+            sentiment_score = max(sentiment_score, 0.6)
+
+        sentiment_score = round(max(0.4, min(9.6, sentiment_score)), 3)
         sentiment_label = (
             "positive" if sentiment_score >= 6.2 else "negative" if sentiment_score <= 4.2 else "neutral"
         )
@@ -375,11 +414,21 @@ class AgnoSentimentAnalyzer:
         if emotion_group == "negative":
             stress_level = max(stress_level, 3.0)
 
-        stress_level = round(max(0.0, min(10.0, stress_level)), 3)
+        if primary_emotion in {"joy", "gratitude", "relief", "hopeful", "optimism", "caring"}:
+            stress_level = min(stress_level, 3.8)
+        if primary_emotion in {"anger", "fear", "nervousness"}:
+            stress_level = min(8.9, max(stress_level, 4.6))
+
+        stress_level = round(max(0.2, min(9.0, stress_level)), 3)
 
         analysis["sentiment_score"] = sentiment_score
         analysis["sentiment_label"] = sentiment_label
-        analysis["emotion_group"] = emotion_group if emotion_group in {"positive", "neutral", "negative"} else sentiment_label
+        inferred_group = self._infer_emotion_group(primary_emotion)
+        analysis["emotion_group"] = inferred_group if inferred_group != "neutral" else (
+            emotion_group if emotion_group in {"positive", "neutral", "negative"} else sentiment_label
+        )
+        analysis["emotion"] = primary_emotion
+        analysis["emotions_detected"] = emotions or [[primary_emotion, round(min(0.98, emotion_confidence), 3)]]
         analysis["stress_level"] = stress_level
         return analysis
 
@@ -398,6 +447,37 @@ class AgnoSentimentAnalyzer:
     def _count_weighted_cues(self, text: str, cues: Dict[str, float]) -> float:
         text_lower = text.lower()
         return sum(weight for phrase, weight in cues.items() if phrase in text_lower)
+
+    def _normalize_emotion_label(self, emotion: str) -> str:
+        normalized = (emotion or "neutral").strip().lower().replace("_", " ").replace("-", " ")
+        normalized = re.sub(r"\s+", " ", normalized)
+        return self.emotion_aliases.get(normalized, normalized)
+
+    def _normalize_detected_emotions(self, emotions: List[List[object]]) -> List[List[object]]:
+        normalized: List[List[object]] = []
+        seen = set()
+        for item in emotions[:4]:
+            if not isinstance(item, (list, tuple)) or len(item) < 2:
+                continue
+            emotion = self._normalize_emotion_label(str(item[0]))
+            confidence = round(max(0.0, min(1.0, float(item[1]))), 3)
+            if emotion in seen:
+                continue
+            seen.add(emotion)
+            normalized.append([emotion, confidence])
+        if not normalized:
+            normalized = [["neutral", 0.5]]
+        normalized.sort(key=lambda pair: pair[1], reverse=True)
+        return normalized
+
+    def _infer_emotion_group(self, emotion: str) -> str:
+        normalized = self._normalize_emotion_label(emotion)
+        valence = self.emotion_valence.get(normalized, 0.0)
+        if valence >= 0.35:
+            return "positive"
+        if valence <= -0.35:
+            return "negative"
+        return "neutral"
 
     def _refine_sentiment_with_context(
         self, text: str, sentiment_result: Dict, emotion_result: Dict
