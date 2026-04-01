@@ -380,6 +380,18 @@ class AgnoSentimentAnalyzer:
         else:
             sentiment_score += emotion_bias * 0.6
 
+        inferred_group = self._infer_emotion_group(primary_emotion)
+        net_negative_bias = negative_bias - positive_bias
+        if inferred_group == "positive" and net_negative_bias < 1.4:
+            positive_floor = 5.4
+            if primary_emotion in {"joy", "gratitude", "relief", "hopeful", "optimism"}:
+                positive_floor = 6.4
+            elif primary_emotion == "caring":
+                positive_floor = 5.8
+            sentiment_score = max(sentiment_score, positive_floor - max(0.0, net_negative_bias * 0.5))
+        elif inferred_group == "negative" and (positive_bias - negative_bias) < 1.0:
+            sentiment_score = min(sentiment_score, 4.6 + max(0.0, (positive_bias - negative_bias) * 0.4))
+
         if primary_emotion in {"joy", "gratitude", "relief", "hopeful", "optimism", "caring"}:
             sentiment_score = min(sentiment_score, 9.4)
         if primary_emotion in {"anger", "fear", "nervousness", "grief", "sadness", "disappointment", "remorse"}:
