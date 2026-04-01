@@ -1,143 +1,103 @@
-# Eunoia Journal 📝
+# Eunoia Journal
 
-An AI-powered journaling web application that analyzes your daily entries for sentiment, emotions, and stress patterns, providing gentle reflections and coping suggestions.
+Eunoia is a reflective journaling app that helps users write consistently, revisit past entries, and notice emotional patterns over time through gentle AI-supported insights.
 
-## 🌟 Features
+## Live App
 
-### MVP Features
-- **📝 Journal Entry Input**: Clean, intuitive interface for writing daily entries
-- **🤖 AI Sentiment Analysis**: Real-time analysis of mood, emotions, and stress levels
-- **📊 Mood Trend Visualization**: Interactive charts showing your emotional patterns over time
-- **💡 AI Reflections**: Personalized insights and gentle coping suggestions
-- **🔒 Privacy-First**: Local data storage with clear privacy disclaimers
+- Website: [https://www.myeunoia.online](https://www.myeunoia.online)
+- API: [https://api.myeunoia.online/health](https://api.myeunoia.online/health)
 
-### Tech Stack
-- **Frontend**: React + TypeScript + Tailwind CSS
-- **Backend**: FastAPI + Python
-- **Database**: Supabase PostgreSQL (with SQLite fallback)
-- **Authentication**: Supabase Auth
-- **AI/ML**: Hugging Face Transformers (sentiment analysis & emotion detection)
-- **Charts**: Recharts for data visualization
+## What It Does
 
-## 🚀 Quick Start
+- Write and save daily journal entries
+- Review recent entries in a clean timeline
+- View mood and stress trends on the dashboard
+- Sign up and sign in with email-based authentication
+- Receive email verification through a branded email flow
+
+## Tech Stack
+
+- Frontend: React + TypeScript
+- Backend: FastAPI + Python
+- Database: Supabase PostgreSQL
+- Authentication: Supabase Auth
+- Charts: Recharts
+- Email delivery: Brevo SMTP through Supabase custom SMTP
+
+## Local Development
 
 ### Prerequisites
-- Node.js (v16 or higher)
-- Python 3.8 or higher
-- pip (Python package manager)
-- Supabase account and project (for authentication and database)
-- HuggingFace account and API token (optional, for AI features)
 
-### Installation
+- Node.js
+- Python 3.10+
+- A Supabase project
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd Eunoia
-   ```
+### Environment Setup
 
-2. **Set up Environment Variables**
-   ```bash
-   # Create .env file in project root
-   cp env.example .env
-   # Edit .env and add your Supabase and HuggingFace credentials
-   ```
-   
-   Get your Supabase credentials from: https://supabase.com/dashboard
-   Get your HuggingFace token from: https://huggingface.co/settings/tokens
+Create:
 
-3. **Set up the Backend**
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   python main.py
-   ```
-   The API will be available at `http://localhost:8000`
+- `/.env` for backend-related values
+- `/frontend/.env` for frontend values
 
-4. **Set up the Frontend** (in a new terminal)
-   ```bash
-   cd frontend
-   npm install
-   npm start
-   ```
-   The app will be available at `http://localhost:3000`
- 
+Typical frontend variables:
 
-## 📱 Usage
-
-1. **Write Entries**: Use the "Write" tab to create daily journal entries
-2. **View Dashboard**: Check the "Dashboard" tab for mood trends and AI insights
-3. **Browse Entries**: Use the "Entries" tab to review your past journal entries
-
-## 🧠 AI Analysis
-
-The app uses pre-trained models to analyze:
-- **Sentiment**: Positive, negative, or neutral mood
-- **Emotions**: Joy, sadness, anger, fear, surprise, etc.
-- **Stress Levels**: Based on keywords and emotional indicators
-
-## ⚠️ Important Disclaimers
-
-- **Privacy**: This is a prototype application. Please do not share sensitive personal information.
-- **Medical Advice**: AI analysis is not a substitute for professional medical or mental health advice.
-- **Data Storage**: Journal entries are stored locally in SQLite database.
-
-## 🔧 Development
-
-### Backend API Endpoints
-- `POST /entries/` - Create a new journal entry
-- `GET /entries/` - Get all journal entries
-- `GET /analytics/sentiment-trends` - Get mood trend data
-- `GET /analytics/insights` - Get AI-generated insights
-
-### Project Structure
-```
-Eunoia/
-├── backend/
-│   ├── main.py                    # FastAPI application
-│   ├── ml_service.py              # AI/ML analysis service
-│   ├── hybrid_ml_service.py       # Hybrid ML service
-│   ├── agno_ml_service.py         # Agno ML service
-│   ├── supabase_auth_service.py   # Supabase authentication
-│   ├── error_handler.py           # Error handling utilities
-│   ├── requirements.txt           # Python dependencies
-│   └── alembic/                   # Database migrations
-├── frontend/
-│   ├── src/
-│   │   ├── components/            # React components
-│   │   │   ├── Auth/             # Authentication components
-│   │   │   ├── Profile/          # User profile components
-│   │   │   └── Admin/            # Admin dashboard
-│   │   ├── contexts/             # React contexts
-│   │   ├── hooks/                # Custom React hooks
-│   │   ├── services/             # API service layer
-│   │   ├── types/                # TypeScript type definitions
-│   │   └── utils/                # Utility functions
-│   ├── public/                   # Static assets
-│   ├── build/                    # Production build
-│   └── package.json              # Node.js dependencies
-├── env.example                   # Environment template
-├── SUPABASE_SETUP.md             # Supabase setup guide
-└── README.md
+```env
+REACT_APP_SUPABASE_URL=your_supabase_url
+REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
+REACT_APP_API_BASE_URL=http://localhost:8000
 ```
 
-## 🎯 Future Enhancements
+Typical backend variables:
 
-- [ ] User authentication and data encryption
-- [ ] Mobile app version
-- [ ] Advanced analytics and reporting
-- [ ] Integration with wellness apps
-- [ ] Export functionality for journal entries
-- [ ] Customizable AI reflection templates
+```env
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+SUPABASE_DB_PASSWORD=your_db_password
+SUPABASE_DB_HOST=your_db_host
+SUPABASE_DB_PORT=5432
+SUPABASE_DB_NAME=postgres
+FRONTEND_ORIGIN=http://localhost:3000
+```
 
-## 📄 License
+Optional:
 
-This project is for educational purposes. Please ensure you comply with all applicable laws and regulations when handling personal data.
+- `HF_TOKEN`
+- `EUNOIA_USE_AGNO`
+- `EUNOIA_ENABLE_MODELS`
 
-## 🤝 Contributing
+### Run Locally
 
-This is a semester project that is updated constantly. Contributions and suggestions are welcome!
+Backend:
 
----
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+python -m backend.main
+```
 
-**Remember**: This tool provides insights based on AI analysis and is not a substitute for professional medical or mental health advice. If you're experiencing significant emotional distress, please consider speaking with a qualified healthcare provider.
+Frontend:
+
+```bash
+cd frontend
+npm install
+npm start
+```
+
+Local app URLs:
+
+- Frontend: [http://localhost:3000](http://localhost:3000)
+- Backend: [http://localhost:8000/health](http://localhost:8000/health)
+
+## Production Notes
+
+- Frontend is deployed on Vercel
+- Backend is deployed on AWS EC2 behind Nginx
+- HTTPS is enabled for both frontend and backend
+- Custom SMTP is configured for branded verification emails
+
+## Disclaimer
+
+Eunoia is a prototype wellness application. It is designed for reflection and pattern awareness, not diagnosis or treatment. Please do not rely on it as a substitute for professional mental health care.
