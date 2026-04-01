@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BookOpen, BarChart3, Home, RefreshCw, Sparkles, ShieldCheck } from 'lucide-react';
+import { BookOpen, BarChart3, Home, Sparkles, ShieldCheck } from 'lucide-react';
 import JournalEntry from './components/JournalEntry';
 import Dashboard from './components/Dashboard';
 import RecentEntries from './components/RecentEntries';
@@ -23,10 +23,6 @@ function App() {
 
   const handleEntrySaved = (newEntry: JournalEntryType) => {
     setEntries((prev) => [newEntry, ...prev]);
-    setRefreshKey((prev) => prev + 1);
-  };
-
-  const handleRefresh = () => {
     setRefreshKey((prev) => prev + 1);
   };
 
@@ -164,10 +160,6 @@ function App() {
             </div>
 
             <div className="toolbar-actions workspace-utilities">
-              <button onClick={handleRefresh} className="refresh-action" title="Refresh data">
-                <RefreshCw className="h-4 w-4" />
-                Refresh
-              </button>
               <ProfileDropdown onSignOut={handleSignOut} />
             </div>
           </div>
