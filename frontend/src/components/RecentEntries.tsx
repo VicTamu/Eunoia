@@ -240,7 +240,9 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
                   <Brain className="h-4 w-4 text-purple-600" />
                   <span className="text-gray-600">
                     Mood:{' '}
-                    {entry.sentiment_score !== null ? `${entry.sentiment_score.toFixed(1)}/10` : 'N/A'}{' '}
+                    {entry.sentiment_score !== null
+                      ? `${entry.sentiment_score.toFixed(1)}/10`
+                      : 'N/A'}{' '}
                     ({getMoodLabel(entry.sentiment_score)})
                   </span>
                 </div>
@@ -251,11 +253,11 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
                   </span>
                 </div>
               </div>
-            <div className="text-gray-500">
-              {(entry.emotion && entry.emotion.toLowerCase() !== 'neutral'
-                ? entry.emotion
-                : (entry as any).emotions_detected?.[0]?.[0]) || 'neutral'}
-            </div>
+              <div className="text-gray-500">
+                {(entry.emotion && entry.emotion.toLowerCase() !== 'neutral'
+                  ? entry.emotion
+                  : entry.emotions_detected?.[0]?.[0]) || 'neutral'}
+              </div>
             </div>
           </div>
         ))}
