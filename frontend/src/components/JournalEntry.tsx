@@ -53,85 +53,89 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ onEntrySaved }) => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Calendar className="h-5 w-5 text-blue-600" />
-        <h2 className="text-xl font-semibold text-gray-800">Today&apos;s Journal Entry</h2>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-2">
-            Date
-          </label>
-          <input
-            type="date"
-            id="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            max={new Date().toISOString().split('T')[0]}
-          />
-        </div>
-
-        <div>
-          <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-2">
-            How are you feeling today?
-          </label>
-          <textarea
-            id="content"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder={getPlaceholderText()}
-            className="w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-            rows={6}
-            disabled={isLoading}
-          />
-          <div className="flex justify-between items-center mt-2">
-            <span className="text-sm text-gray-500">{content.length} characters</span>
-            <span className="text-sm text-gray-500">
-              {content.split(/\s+/).filter((word) => word.length > 0).length} words
-            </span>
+    <div className="journal-layout">
+      <div className="panel-card journal-card">
+        <div className="section-heading">
+          <div>
+            <div className="eyebrow">
+              <Calendar className="h-4 w-4" />
+              Daily reflection
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mt-4">What felt most alive today?</h2>
+            <p className="muted-copy mt-2">
+              Write freely. Eunoia will help you notice the emotional shape of the day without
+              interrupting the writing itself.
+            </p>
           </div>
         </div>
 
-        {message && (
-          <div
-            className={`p-3 rounded-md ${
-              message.includes('Error') || message.includes('Please')
-                ? 'bg-red-50 text-red-700 border border-red-200'
-                : 'bg-green-50 text-green-700 border border-green-200'
-            }`}
-          >
-            {message}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="field-shell">
+            <label htmlFor="date" className="field-label">
+              Entry date
+            </label>
+            <input
+              type="date"
+              id="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="field-input"
+              max={new Date().toISOString().split('T')[0]}
+            />
           </div>
-        )}
 
-        <button
-          type="submit"
-          disabled={isLoading || !content.trim()}
-          className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Analyzing and saving...
-            </>
-          ) : (
-            <>
-              <Save className="h-4 w-4" />
-              Save Entry
-            </>
+          <div className="field-shell">
+            <label htmlFor="content" className="field-label">
+              Your journal entry
+            </label>
+            <textarea
+              id="content"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder={getPlaceholderText()}
+              className="field-textarea resize-none"
+              rows={6}
+              disabled={isLoading}
+            />
+            <div className="journal-toolbar">
+              <span>{content.length} characters</span>
+              <span>{content.split(/\s+/).filter((word) => word.length > 0).length} words</span>
+            </div>
+          </div>
+
+          {message && (
+            <div
+              className={`status-banner ${
+                message.includes('Error') || message.includes('Please')
+                  ? 'status-banner-error'
+                  : 'status-banner-success'
+              }`}
+            >
+              {message}
+            </div>
           )}
-        </button>
-      </form>
 
-      <div className="mt-4 p-4 bg-blue-50 rounded-md">
-        <p className="text-sm text-blue-800">
-          <strong>Privacy Note:</strong> Your journal entries are analyzed by AI to provide insights
-          about your mood and stress levels. This is a prototype - please don&apos;t share sensitive
-          personal information.
-        </p>
+          <button type="submit" disabled={isLoading || !content.trim()} className="primary-action">
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Analyzing and saving...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4" />
+                Save today&apos;s entry
+              </>
+            )}
+          </button>
+        </form>
+
+        <div className="minimal-note">
+          <p>
+            Start simple: what stayed with you today, where you felt stretched or steady, and what
+            you might need a little more of tomorrow.
+          </p>
+        </div>
       </div>
     </div>
   );
