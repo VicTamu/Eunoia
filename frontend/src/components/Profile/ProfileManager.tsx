@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import React, { useCallback, useEffect, useState } from 'react';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 import { User, Edit3, Save, X, Check } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
+import api from '../../services/api';
 
 interface UserProfile {
   id: number;
@@ -15,8 +18,25 @@ interface UserProfile {
   last_login: string | null;
 }
 
-const ProfileManager: React.FC = () => {
-  const { user, session } = useAuth();
+interface ProfileManagerProps {
+  onClose: () => void;
+}
+
+const buildProfileFromUser = (user: SupabaseUser): UserProfile => ({
+  id: 0,
+  user_id: user.id,
+  email: user.email || '',
+  full_name: user.user_metadata?.full_name || null,
+  display_name: user.user_metadata?.display_name || user.email?.split('@')[0] || null,
+  role: 'user',
+  is_active: 'true',
+  created_at: user.created_at || new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  last_login: user.last_sign_in_at || null,
+});
+
+const ProfileManager: React.FC<ProfileManagerProps> = ({ onClose }) => {
+  const { user } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -24,37 +44,47 @@ const ProfileManager: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Form state
+  const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [fullName, setFullName] = useState('');
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+  const fetchProfile = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      setError('Unable to find your current session.');
+      return;
+    }
 
-  const fetchProfile = async () => {
+    const fallbackProfile = buildProfileFromUser(user);
+
     try {
       setLoading(true);
-      const response = await fetch('/api/profile', {
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch profile');
-      }
-
-      const profileData = await response.json();
-      setProfile(profileData);
-      setDisplayName(profileData.display_name || '');
-      setFullName(profileData.full_name || '');
-    } catch (err) {
-      setError('Failed to load profile');
+      setError('');
+      const { data } = await api.get('/profile');
+      const mergedProfile = {
+        ...data,
+        email: user.email || data.email,
+        full_name: data.full_name || fallbackProfile.full_name,
+        display_name: data.display_name || fallbackProfile.display_name,
+      };
+      setProfile(mergedProfile);
+      setEmail(mergedProfile.email || '');
+      setDisplayName(mergedProfile.display_name || '');
+      setFullName(mergedProfile.full_name || '');
+    } catch (_err) {
+      setProfile(fallbackProfile);
+      setEmail(fallbackProfile.email);
+      setDisplayName(fallbackProfile.display_name || '');
+      setFullName(fallbackProfile.full_name || '');
+      setError('');
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
 
   const handleEdit = () => {
     setEditing(true);
@@ -64,6 +94,7 @@ const ProfileManager: React.FC = () => {
 
   const handleCancel = () => {
     setEditing(false);
+    setEmail(profile?.email || user?.email || '');
     setDisplayName(profile?.display_name || '');
     setFullName(profile?.full_name || '');
     setError('');
@@ -71,32 +102,69 @@ const ProfileManager: React.FC = () => {
   };
 
   const handleSave = async () => {
+    if (!user) {
+      setError('You need to be signed in to update your profile.');
+      return;
+    }
+
     try {
       setSaving(true);
       setError('');
       setSuccess('');
 
-      const response = await fetch('/api/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
+      const trimmedEmail = email.trim().toLowerCase();
+      const trimmedDisplayName = displayName.trim();
+      const trimmedFullName = fullName.trim();
+      const emailChanged = trimmedEmail !== (user.email || '').toLowerCase();
+
+      const { data: authData, error: authError } = await supabase.auth.updateUser({
+        ...(emailChanged ? { email: trimmedEmail } : {}),
+        data: {
+          display_name: trimmedDisplayName,
+          full_name: trimmedFullName || null,
         },
-        body: JSON.stringify({
-          display_name: displayName.trim(),
-          full_name: fullName.trim() || null,
-        }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to update profile');
+      if (authError) {
+        throw authError;
       }
 
-      const updatedProfile = await response.json();
+      const updatedUser = authData.user ?? user;
+
+      let updatedProfile = {
+        ...buildProfileFromUser(updatedUser),
+        email: emailChanged ? trimmedEmail : updatedUser.email || trimmedEmail,
+        display_name: trimmedDisplayName,
+        full_name: trimmedFullName || null,
+      };
+
+      try {
+        const payload = {
+          display_name: trimmedDisplayName,
+          full_name: trimmedFullName || null,
+        };
+
+        const { data } = await api.put('/profile', payload);
+        updatedProfile = {
+          ...updatedProfile,
+          ...data,
+          email: emailChanged ? trimmedEmail : updatedProfile.email,
+        };
+      } catch (_apiError) {
+        // Keep the profile editor responsive even when the API isn't running locally.
+      }
+
       setProfile(updatedProfile);
+      setEmail(updatedProfile.email || trimmedEmail);
+      setDisplayName(updatedProfile.display_name || trimmedDisplayName);
+      setFullName(updatedProfile.full_name || trimmedFullName);
       setEditing(false);
-      setSuccess('Profile updated successfully!');
-    } catch (err) {
+      setSuccess(
+        emailChanged
+          ? 'Profile updated. Check your inbox to confirm your new email address.'
+          : 'Profile updated successfully.',
+      );
+    } catch (_err) {
       setError('Failed to update profile. Please try again.');
     } finally {
       setSaving(false);
@@ -108,163 +176,137 @@ const ProfileManager: React.FC = () => {
     return trimmed.length >= 2 && trimmed.length <= 50 && /^[a-zA-Z0-9_\s-]+$/.test(trimmed);
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading profile...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-2xl mx-auto p-6">
-      <div className="bg-white shadow-lg rounded-lg p-8">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center">
-            <User className="h-8 w-8 text-blue-600 mr-3" />
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Profile Settings</h2>
-              <p className="text-gray-600">Manage your account information</p>
+    <div className="preferences-overlay" onClick={onClose}>
+      <div className="preferences-modal panel-card" onClick={(e) => e.stopPropagation()}>
+        <div className="preferences-header">
+          <div>
+            <div className="eyebrow">
+              <User className="h-4 w-4" />
+              Profile
             </div>
+            <h2 className="section-title mt-4">Edit your profile</h2>
+            <p className="section-copy mt-2">
+              Update the name and details that shape how your reflection space feels to you.
+            </p>
           </div>
-          {!editing && (
-            <button
-              onClick={handleEdit}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Edit3 className="h-4 w-4 mr-2" />
-              Edit
-            </button>
+          <button onClick={onClose} className="preferences-close" aria-label="Close profile">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="preferences-content">
+          {loading ? (
+            <div className="preferences-section">
+              <div className="flex items-center justify-center h-32">
+                <div
+                  className="animate-spin rounded-full h-8 w-8 border-b-2"
+                  style={{ borderColor: 'transparent', borderBottomColor: 'var(--icon-accent)' }}
+                ></div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {error ? <div className="status-banner status-banner-error">{error}</div> : null}
+              {success ? (
+                <div className="status-banner status-banner-success">{success}</div>
+              ) : null}
+
+              <section className="preferences-section">
+                <div className="preferences-section-heading">
+                  <Edit3 className="h-5 w-5" />
+                  <div>
+                    <h3>Profile details</h3>
+                    <p>Keep the basics accurate and choose how your name appears in the app.</p>
+                  </div>
+                </div>
+
+                <div className="preferences-form-grid">
+                  <div className="field-shell field-shell-wide">
+                    <label className="field-label">Email address</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={!editing}
+                      className="field-input"
+                    />
+                    <p className="field-helper">
+                      If you change your email, we&apos;ll send a confirmation link to the new
+                      address before the update takes effect.
+                    </p>
+                  </div>
+
+                  <div className="field-shell">
+                    <label className="field-label">Display name</label>
+                    <input
+                      type="text"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      disabled={!editing}
+                      className="field-input"
+                      placeholder="Enter your display name"
+                    />
+                    {editing && displayName && validateDisplayName(displayName) ? (
+                      <div className="preferences-validation">
+                        <Check className="h-4 w-4" />
+                        <span>Looks good</span>
+                      </div>
+                    ) : null}
+                    {editing && displayName && !validateDisplayName(displayName) ? (
+                      <p className="preferences-validation preferences-validation-error">
+                        Display name must be 2-50 characters and use only letters, numbers, spaces,
+                        hyphens, or underscores.
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="field-shell">
+                    <label className="field-label">Full name</label>
+                    <input
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      disabled={!editing}
+                      className="field-input"
+                      placeholder="Optional full name"
+                    />
+                  </div>
+                </div>
+              </section>
+            </>
           )}
         </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md mb-6">
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-md mb-6">
-            {success}
-          </div>
-        )}
-
-        <div className="space-y-6">
-          {/* Email (read-only) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-            <input
-              type="email"
-              value={profile?.email || ''}
-              disabled
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
-            />
-            <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
-          </div>
-
-          {/* Display Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Display Name</label>
-            {editing ? (
-              <div>
-                <input
-                  type="text"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Enter your display name"
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    displayName && !validateDisplayName(displayName)
-                      ? 'border-red-300 focus:ring-red-500'
-                      : displayName && validateDisplayName(displayName)
-                        ? 'border-green-300 focus:ring-green-500'
-                        : 'border-gray-300'
-                  }`}
-                  maxLength={50}
-                />
-                {displayName && validateDisplayName(displayName) && (
-                  <div className="flex items-center mt-1 text-green-600 text-sm">
-                    <Check className="h-4 w-4 mr-1" />
-                    Valid display name
-                  </div>
-                )}
-                {displayName && !validateDisplayName(displayName) && (
-                  <p className="mt-1 text-sm text-red-600">
-                    Display name must be 2-50 characters and contain only letters, numbers, spaces,
-                    hyphens, and underscores.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <input
-                type="text"
-                value={profile?.display_name || 'Not set'}
-                disabled
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
-              />
-            )}
-            <p className="text-xs text-gray-500 mt-1">
-              This is how other users will see you in the app
-            </p>
-          </div>
-
-          {/* Full Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Full Name (Optional)
-            </label>
-            {editing ? (
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Enter your full name"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            ) : (
-              <input
-                type="text"
-                value={profile?.full_name || 'Not set'}
-                disabled
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
-              />
-            )}
-          </div>
-
-          {/* Role (read-only) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
-            <input
-              type="text"
-              value={profile?.role || 'user'}
-              disabled
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
-            />
-          </div>
-
-          {/* Action Buttons */}
-          {editing && (
-            <div className="flex space-x-4 pt-6 border-t border-gray-200">
-              <button
-                onClick={handleSave}
-                disabled={saving || !validateDisplayName(displayName)}
-                className="flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
+        <div className="preferences-footer">
+          {editing ? (
+            <>
               <button
                 onClick={handleCancel}
                 disabled={saving}
-                className="flex items-center px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors"
+                className="preferences-secondary-action"
               >
-                <X className="h-4 w-4 mr-2" />
                 Cancel
               </button>
-            </div>
+              <button
+                onClick={handleSave}
+                disabled={saving || !validateDisplayName(displayName) || !email.trim()}
+                className="primary-action preferences-primary-action"
+              >
+                <Save className="h-4 w-4" />
+                {saving ? 'Saving...' : 'Save changes'}
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={onClose} className="preferences-secondary-action">
+                Close
+              </button>
+              <button onClick={handleEdit} className="primary-action preferences-primary-action">
+                <Edit3 className="h-4 w-4" />
+                Edit profile
+              </button>
+            </>
           )}
         </div>
       </div>
