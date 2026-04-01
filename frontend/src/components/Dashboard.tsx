@@ -67,7 +67,10 @@ const Dashboard: React.FC = () => {
     return (
       <div className="panel-card chart-card">
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div
+            className="animate-spin rounded-full h-8 w-8 border-b-2"
+            style={{ borderColor: 'transparent', borderBottomColor: 'var(--icon-accent)' }}
+          ></div>
         </div>
       </div>
     );
@@ -79,10 +82,7 @@ const Dashboard: React.FC = () => {
         <div className="text-center text-red-600">
           <AlertCircle className="h-8 w-8 mx-auto mb-2" />
           <p className="mb-4">{error.userMessage || error.message}</p>
-          <button
-            onClick={retry}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
+          <button onClick={retry} className="primary-action">
             Try Again
           </button>
         </div>
@@ -104,12 +104,12 @@ const Dashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="overview-grid">
         <div className="metric-card">
-          <TrendingUp className="h-5 w-5 text-blue-600" />
+          <TrendingUp className="h-5 w-5" style={{ color: 'var(--icon-accent)' }} />
           <strong>{averageMood}</strong>
           <span>Average mood in your recent reflections.</span>
         </div>
         <div className="metric-card">
-          <Heart className="h-5 w-5 text-red-600" />
+          <Heart className="h-5 w-5" style={{ color: 'var(--icon-heart)' }} />
           <strong>{averageStress}</strong>
           <span>Average stress level over the same period.</span>
         </div>
@@ -123,9 +123,7 @@ const Dashboard: React.FC = () => {
                 <Brain className="h-4 w-4" />
                 Insight summary
               </div>
-              <h2 className="text-xl font-semibold text-gray-800 mt-3">
-                A gentle read on how things have been feeling
-              </h2>
+              <h2 className="section-title mt-3">A gentle read on how things have been feeling</h2>
             </div>
           </div>
 
@@ -139,11 +137,15 @@ const Dashboard: React.FC = () => {
 
           {insights.suggestions.length > 0 && (
             <div className="mt-4">
-              <h4 className="font-medium text-gray-700 mb-2">Suggested next steps</h4>
+              <h4 className="font-medium mb-2" style={{ color: 'var(--heading-strong)' }}>
+                Suggested next steps
+              </h4>
               <ul className="suggestion-list">
                 {insights.suggestions.map((suggestion, index) => (
                   <li key={index} className="suggestion-item">
-                    <span className="text-green-600 mt-1">•</span>
+                    <span className="mt-1" style={{ color: 'var(--icon-support)' }}>
+                      •
+                    </span>
                     <span>{suggestion}</span>
                   </li>
                 ))}
@@ -157,12 +159,14 @@ const Dashboard: React.FC = () => {
         <div className="panel-card chart-card">
           <div className="section-heading">
             <div>
-              <h3 className="text-lg font-semibold text-gray-800">Mood trends</h3>
+              <h3 className="section-title" style={{ fontSize: '1.125rem', lineHeight: '1.75rem' }}>
+                Mood trends
+              </h3>
               <p className="muted-copy">
                 A clear line showing how your emotional tone has shifted.
               </p>
             </div>
-            <TrendingUp className="h-5 w-5 text-green-600" />
+            <TrendingUp className="h-5 w-5" style={{ color: 'var(--icon-support)' }} />
           </div>
 
           <ResponsiveContainer width="100%" height={300}>
@@ -177,9 +181,9 @@ const Dashboard: React.FC = () => {
               <Line
                 type="monotone"
                 dataKey="avg_sentiment"
-                stroke="#0f766e"
+                stroke="var(--chart-line)"
                 strokeWidth={3}
-                dot={{ fill: '#0f766e', strokeWidth: 2, r: 4 }}
+                dot={{ fill: 'var(--chart-line)', strokeWidth: 2, r: 4 }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -188,10 +192,12 @@ const Dashboard: React.FC = () => {
         <div className="panel-card chart-card">
           <div className="section-heading">
             <div>
-              <h3 className="text-lg font-semibold text-gray-800">Stress levels</h3>
+              <h3 className="section-title" style={{ fontSize: '1.125rem', lineHeight: '1.75rem' }}>
+                Stress levels
+              </h3>
               <p className="muted-copy">Notice when heavier days start clustering together.</p>
             </div>
-            <Heart className="h-5 w-5 text-red-600" />
+            <Heart className="h-5 w-5" style={{ color: 'var(--icon-heart)' }} />
           </div>
 
           <ResponsiveContainer width="100%" height={300}>
@@ -203,16 +209,19 @@ const Dashboard: React.FC = () => {
                 labelFormatter={(value) => formatDate(value)}
                 formatter={(value: number) => [value.toFixed(1), 'Stress']}
               />
-              <Bar dataKey="avg_stress" fill="#fb7185" radius={[10, 10, 0, 0]} />
+              <Bar dataKey="avg_stress" fill="var(--chart-bar)" radius={[10, 10, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+      <div className="disclaimer-card p-4">
         <div className="flex items-start gap-2">
-          <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
-          <div className="text-sm text-yellow-800">
+          <AlertCircle
+            className="h-5 w-5 mt-0.5 flex-shrink-0"
+            style={{ color: 'var(--alert-text)' }}
+          />
+          <div className="text-sm disclaimer-copy">
             <strong>AI analysis disclaimer:</strong> These patterns and insights can be useful for
             reflection, but they are not a substitute for professional mental health advice.
           </div>

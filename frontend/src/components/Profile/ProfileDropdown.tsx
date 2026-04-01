@@ -1,5 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings, Palette, LogOut, ChevronDown, Edit3, Shield } from 'lucide-react';
+import {
+  Settings,
+  Palette,
+  LogOut,
+  ChevronDown,
+  Edit3,
+  Shield,
+  Check,
+  SlidersHorizontal,
+} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme, Theme } from '../../contexts/ThemeContext';
 import PreferencesModal from './PreferencesModal';
@@ -65,119 +74,101 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut }) => {
   };
 
   const themeOptions: ThemeOption[] = [
-    { value: 'light', label: 'Light', color: 'bg-gray-100' },
-    { value: 'dark', label: 'Dark', color: 'bg-gray-800' },
-    { value: 'blue', label: 'Blue', color: 'bg-blue-500' },
-    { value: 'green', label: 'Green', color: 'bg-green-500' },
-    { value: 'purple', label: 'Purple', color: 'bg-purple-500' },
+    { value: 'light', label: 'Light', color: 'linear-gradient(135deg, #f8fafc, #e2e8f0)' },
+    { value: 'dark', label: 'Dark', color: 'linear-gradient(135deg, #0f172a, #334155)' },
+    { value: 'blue', label: 'Ocean', color: 'linear-gradient(135deg, #bfdbfe, #60a5fa)' },
+    { value: 'green', label: 'Forest', color: 'linear-gradient(135deg, #bbf7d0, #34d399)' },
   ];
 
   return (
     <>
-      <div className="relative" ref={dropdownRef}>
-        {/* User Avatar Button */}
+      <div className="profile-menu-shell" ref={dropdownRef}>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          className={`profile-trigger ${isOpen ? 'profile-trigger-open' : ''}`}
+          aria-expanded={isOpen}
+          aria-haspopup="menu"
         >
-          <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-            {getInitials()}
+          <div className="profile-trigger-avatar">{getInitials()}</div>
+          <div className="profile-trigger-copy">
+            <span className="profile-trigger-name">{getDisplayName()}</span>
+            <span className="profile-trigger-subtitle">Workspace</span>
           </div>
           <ChevronDown
-            className={`h-4 w-4 text-gray-600 dark:text-gray-300 transition-transform ${
-              isOpen ? 'rotate-180' : ''
-            }`}
+            className={`h-4 w-4 profile-trigger-chevron ${isOpen ? 'rotate-180' : ''}`}
           />
         </button>
 
-        {/* Dropdown Menu */}
         {isOpen && (
-          <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
-            {/* User Info Header */}
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
-                  {getInitials()}
+          <div className="profile-popover" role="menu">
+            <div className="profile-panel-header">
+              <div className="profile-panel-identity">
+                <div className="profile-panel-avatar">{getInitials()}</div>
+                <div className="profile-panel-copy">
+                  <p className="profile-panel-name">{getDisplayName()}</p>
+                  <p className="profile-panel-email">{user?.email}</p>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                    {getDisplayName()}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
-                </div>
+              </div>
+              <button
+                onClick={handlePreferences}
+                className="profile-settings-shortcut"
+                title="Open preferences"
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="profile-quick-actions">
+              <button onClick={() => setIsOpen(false)} className="profile-quick-action">
+                <Edit3 className="h-4 w-4" />
+                <span>Edit profile</span>
+              </button>
+              <button onClick={handlePreferences} className="profile-quick-action">
+                <Settings className="h-4 w-4" />
+                <span>Preferences</span>
+              </button>
+              <button onClick={() => setIsOpen(false)} className="profile-quick-action">
+                <Shield className="h-4 w-4" />
+                <span>Privacy</span>
+              </button>
+            </div>
+
+            <div className="profile-theme-section">
+              <div className="profile-section-title">
+                <Palette className="h-4 w-4" />
+                <span>Theme mood</span>
+              </div>
+              <div className="profile-theme-grid">
+                {themeOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setTheme(option.value)}
+                    className={`profile-theme-chip ${
+                      theme === option.value ? 'profile-theme-chip-active' : ''
+                    }`}
+                  >
+                    <span
+                      className="profile-theme-swatch"
+                      style={{ background: option.color }}
+                      aria-hidden="true"
+                    />
+                    <span>{option.label}</span>
+                    {theme === option.value ? <Check className="h-3.5 w-3.5" /> : null}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Menu Items */}
-            <div className="py-2">
-              {/* Edit Profile */}
-              <button
-                onClick={() => setIsOpen(false)}
-                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                <Edit3 className="h-4 w-4" />
-                Edit Profile
-              </button>
-
-              {/* Theme Selector */}
-              <div className="px-4 py-2">
-                <div className="flex items-center gap-2 mb-2">
-                  <Palette className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Theme
-                  </span>
-                </div>
-                <div className="flex gap-1">
-                  {themeOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => setTheme(option.value)}
-                      className={`w-6 h-6 rounded-full ${option.color} border-2 ${
-                        theme === option.value
-                          ? 'border-blue-500 dark:border-blue-400'
-                          : 'border-gray-300 dark:border-gray-600'
-                      } transition-all hover:scale-110`}
-                      title={option.label}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Preferences */}
-              <button
-                onClick={handlePreferences}
-                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                <Settings className="h-4 w-4" />
-                Preferences
-              </button>
-
-              {/* Privacy & Security */}
-              <button
-                onClick={() => setIsOpen(false)}
-                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                <Shield className="h-4 w-4" />
-                Privacy & Security
-              </button>
-
-              {/* Divider */}
-              <div className="border-t border-gray-200 dark:border-gray-700 my-2" />
-
-              {/* Sign Out */}
-              <button
-                onClick={handleSignOut}
-                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-              >
+            <div className="profile-panel-footer">
+              <button onClick={handleSignOut} className="profile-signout">
                 <LogOut className="h-4 w-4" />
-                Sign Out
+                Sign out
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Preferences Modal */}
       {showPreferences && <PreferencesModal onClose={() => setShowPreferences(false)} />}
     </>
   );

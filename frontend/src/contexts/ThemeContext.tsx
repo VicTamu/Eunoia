@@ -1,6 +1,20 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
-export type Theme = 'light' | 'dark' | 'blue' | 'green' | 'purple';
+export type Theme = 'light' | 'dark' | 'blue' | 'green';
+
+const VALID_THEMES: Theme[] = ['light', 'dark', 'blue', 'green'];
+
+const normalizeTheme = (value: string | null): Theme => {
+  if (value === 'purple') {
+    return 'blue';
+  }
+
+  if (value && VALID_THEMES.includes(value as Theme)) {
+    return value as Theme;
+  }
+
+  return 'light';
+};
 
 interface ThemeContextType {
   theme: Theme;
@@ -25,7 +39,7 @@ interface ThemeProviderProps {
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = localStorage.getItem('eunoia-theme');
-    return (saved as Theme) || 'light';
+    return normalizeTheme(saved);
   });
 
   const isDark = theme === 'dark';
@@ -54,7 +68,6 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         dark: '#1f2937',
         blue: '#3b82f6',
         green: '#10b981',
-        purple: '#8b5cf6',
       };
       metaThemeColor.setAttribute('content', colors[theme]);
     }

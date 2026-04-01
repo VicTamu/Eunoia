@@ -144,8 +144,8 @@ function App() {
             </div>
           </section>
 
-          <div className="app-topbar">
-            <div className="tabs-shell">
+          <div className="workspace-bar">
+            <div className="tabs-shell workspace-nav">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -163,7 +163,7 @@ function App() {
               })}
             </div>
 
-            <div className="toolbar-actions">
+            <div className="toolbar-actions workspace-utilities">
               <button onClick={handleRefresh} className="refresh-action" title="Refresh data">
                 <RefreshCw className="h-4 w-4" />
                 Refresh

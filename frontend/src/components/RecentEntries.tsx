@@ -139,7 +139,10 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
     return (
       <div className="panel-card entries-card">
         <div className="flex items-center justify-center h-32">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+          <div
+            className="animate-spin rounded-full h-6 w-6 border-b-2"
+            style={{ borderColor: 'transparent', borderBottomColor: 'var(--icon-accent)' }}
+          ></div>
         </div>
       </div>
     );
@@ -154,7 +157,7 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
               <BookOpen className="h-4 w-4" />
               Recent writing
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mt-4">We couldn’t load your entries</h2>
+            <h2 className="section-title mt-4">We couldn&apos;t load your entries</h2>
           </div>
         </div>
         <div className="status-banner status-banner-error">
@@ -187,9 +190,7 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
             <Sparkles className="h-4 w-4" />
             Recent writing
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mt-4">
-            A readable timeline of how you’ve been doing
-          </h2>
+          <h2 className="section-title mt-4">A readable timeline of how you&apos;ve been doing</h2>
           <p className="muted-copy mt-2">
             Scan recent reflections, emotional tone, and stress at a glance without losing the human
             texture of what you wrote.
@@ -222,18 +223,18 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
                 </div>
               </div>
 
-              <p className="text-gray-800 line-clamp-3">{truncatedPreview}</p>
+              <p className="entry-preview line-clamp-3">{truncatedPreview}</p>
 
               <div className="entry-footer">
                 <div className="entry-badges">
                   <span className="entry-badge">
-                    <Brain className="h-4 w-4 text-purple-600" />
+                    <Brain className="h-4 w-4" style={{ color: 'var(--icon-accent)' }} />
                     {entry.sentiment_score !== null
                       ? `${entry.sentiment_score.toFixed(1)}/10`
                       : 'N/A'}
                   </span>
                   <span className="entry-badge">
-                    <Heart className="h-4 w-4 text-red-600" />
+                    <Heart className="h-4 w-4" style={{ color: 'var(--icon-heart)' }} />
                     {getStressLabel(entry.stress_level)}
                   </span>
                 </div>

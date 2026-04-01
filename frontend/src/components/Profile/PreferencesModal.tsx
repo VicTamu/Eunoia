@@ -12,7 +12,13 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ onClose }) => {
   const [analytics, setAnalytics] = useState(true);
   const [autoSave, setAutoSave] = useState(true);
 
-  const themeOptions = [
+  const themeOptions: {
+    value: Theme;
+    label: string;
+    description: string;
+    icon: typeof Sun;
+    preview: string;
+  }[] = [
     {
       value: 'light',
       label: 'Light',
@@ -40,13 +46,6 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ onClose }) => {
       description: 'Natural and peaceful',
       icon: Palette,
       preview: 'bg-green-50 border-green-200',
-    },
-    {
-      value: 'purple',
-      label: 'Royal Purple',
-      description: 'Creative and inspiring',
-      icon: Palette,
-      preview: 'bg-purple-50 border-purple-200',
     },
   ];
 
@@ -86,7 +85,7 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ onClose }) => {
                 return (
                   <button
                     key={option.value}
-                    onClick={() => setTheme(option.value as Theme)}
+                    onClick={() => setTheme(option.value)}
                     className={`p-4 rounded-lg border-2 transition-all text-left ${
                       theme === option.value
                         ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'

@@ -61,8 +61,8 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ onEntrySaved }) => {
               <Calendar className="h-4 w-4" />
               Daily reflection
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mt-4">What felt most alive today?</h2>
-            <p className="muted-copy mt-2">
+            <h2 className="section-title mt-4">What felt most alive today?</h2>
+            <p className="section-copy mt-2">
               Write freely. Eunoia will help you notice the emotional shape of the day without
               interrupting the writing itself.
             </p>
