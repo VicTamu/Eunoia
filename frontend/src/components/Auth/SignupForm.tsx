@@ -97,50 +97,52 @@ const SignupForm: React.FC<SignupFormProps> = ({ onToggleMode }) => {
         <p className="text-gray-600 mt-2">Start your Eunoia journaling rhythm in just a minute.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="auth-form">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
             {error}
           </div>
         )}
 
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="auth-field">
+          <label htmlFor="email" className="auth-label">
             Email Address
           </label>
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+          <div className="auth-input-shell">
+            <Mail
+              className={`auth-leading-icon h-5 w-5 ${email ? 'auth-leading-icon-hidden' : ''}`}
+            />
             <input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Enter your email"
+              className="auth-input"
             />
           </div>
         </div>
 
-        <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="auth-field">
+          <label htmlFor="password" className="auth-label">
             Password
           </label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+          <div className="auth-input-shell">
+            <Lock
+              className={`auth-leading-icon h-5 w-5 ${password ? 'auth-leading-icon-hidden' : ''}`}
+            />
             <input
               id="password"
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Create a password"
+              className="auth-input auth-input-with-toggle"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              className="auth-toggle"
             >
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
@@ -148,36 +150,35 @@ const SignupForm: React.FC<SignupFormProps> = ({ onToggleMode }) => {
           <p className="text-xs text-gray-500 mt-1">Must be at least 6 characters</p>
         </div>
 
-        <div>
-          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="auth-field">
+          <label htmlFor="confirmPassword" className="auth-label">
             Confirm Password
           </label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+          <div className="auth-input-shell">
+            <Lock
+              className={`auth-leading-icon h-5 w-5 ${
+                confirmPassword ? 'auth-leading-icon-hidden' : ''
+              }`}
+            />
             <input
               id="confirmPassword"
               type={showConfirmPassword ? 'text' : 'password'}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Confirm your password"
+              className="auth-input auth-input-with-toggle"
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              className="auth-toggle"
             >
               {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
+        <button type="submit" disabled={loading} className="auth-primary-button">
           {loading ? 'Creating Account...' : 'Create Account'}
         </button>
       </form>
