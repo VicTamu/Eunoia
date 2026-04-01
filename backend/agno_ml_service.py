@@ -232,7 +232,9 @@ class AgnoSentimentAnalyzer:
                 .get("content", "")
             )
             parsed = self._parse_chat_analysis(content)
-            return parsed
+            if parsed is None:
+                return None
+            return self._postprocess_llm_analysis(text, parsed)
         except Exception as e:
             logger.error(f"Error in HuggingFace chat completion analysis: {e}")
             return None
@@ -310,11 +312,82 @@ class AgnoSentimentAnalyzer:
             "analysis_confidence": analysis_confidence,
         }
 
+    def _postprocess_llm_analysis(self, text: str, analysis: Dict) -> Dict:
+        text_lower = text.lower()
+        sentiment_label = str(analysis.get("sentiment_label", "neutral")).lower()
+        emotion_group = str(analysis.get("emotion_group", sentiment_label)).lower()
+        primary_emotion = str(analysis.get("emotion", "neutral")).lower()
+        emotion_confidence = float(analysis.get("emotion_confidence", 0.6))
+        raw_sentiment = float(analysis.get("sentiment_score", 5.0))
+        raw_stress = float(analysis.get("stress_level", 3.0))
+        emotions = analysis.get("emotions_detected", []) or []
+
+        positive_bias = self._count_weighted_cues(text_lower, self.positive_cues)
+        negative_bias = self._count_weighted_cues(text_lower, self.negative_cues)
+
+        emotion_bias = self.emotion_valence.get(primary_emotion, 0.0) * max(emotion_confidence, 0.45)
+        if not emotion_bias and emotions:
+            for emotion, score in emotions[:3]:
+                emotion_bias += self.emotion_valence.get(str(emotion).lower(), 0.0) * float(score)
+
+        sentiment_score = self._normalize_llm_scale(
+            raw_value=raw_sentiment,
+            label=sentiment_label,
+            is_stress=False,
+        )
+        sentiment_score += positive_bias * 1.15
+        sentiment_score -= negative_bias * 1.2
+        sentiment_score += emotion_bias * 2.1
+
+        if sentiment_label == "positive":
+            sentiment_score = max(sentiment_score, 6.2 + positive_bias * 0.25)
+        elif sentiment_label == "negative":
+            sentiment_score = min(sentiment_score, 3.8 - negative_bias * 0.2)
+        else:
+            sentiment_score += emotion_bias * 0.6
+
+        sentiment_score = round(max(0.0, min(10.0, sentiment_score)), 3)
+        sentiment_label = (
+            "positive" if sentiment_score >= 6.2 else "negative" if sentiment_score <= 4.2 else "neutral"
+        )
+
+        stress_level = self._normalize_llm_scale(
+            raw_value=raw_stress,
+            label=emotion_group,
+            is_stress=True,
+        )
+        stress_level += negative_bias * 1.4
+        stress_level -= positive_bias * 1.25
+
+        if primary_emotion in {"gratitude", "joy", "relief", "hopeful", "optimism", "calm"}:
+            stress_level -= 2.3
+        if primary_emotion in {"fear", "nervousness", "anxiety", "overwhelmed", "anger"}:
+            stress_level += 2.0
+        if "deadline" in text_lower or "pressure" in text_lower or "overwhelmed" in text_lower:
+            stress_level += 1.2
+        if "relaxed" in text_lower or "calm" in text_lower or "sunshine" in text_lower:
+            stress_level -= 1.0
+
+        if sentiment_label == "positive":
+            stress_level = min(stress_level, 5.2)
+        if emotion_group == "positive":
+            stress_level = min(stress_level, 4.6)
+        if emotion_group == "negative":
+            stress_level = max(stress_level, 3.0)
+
+        stress_level = round(max(0.0, min(10.0, stress_level)), 3)
+
+        analysis["sentiment_score"] = sentiment_score
+        analysis["sentiment_label"] = sentiment_label
+        analysis["emotion_group"] = emotion_group if emotion_group in {"positive", "neutral", "negative"} else sentiment_label
+        analysis["stress_level"] = stress_level
+        return analysis
+
     def _normalize_llm_scale(self, raw_value: float, label: str, is_stress: bool) -> float:
         bounded = max(0.0, raw_value)
         if bounded <= 1.0:
             if is_stress:
-                return round(bounded * 10.0, 3)
+                return round(bounded * 6.5, 3)
             if label == "positive":
                 return round(5.0 + (bounded * 5.0), 3)
             if label == "negative":
