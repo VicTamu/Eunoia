@@ -2,6 +2,7 @@ import os
 import logging
 from typing import Dict, List, Tuple, Optional
 import json
+import re
 from pathlib import Path
 from dotenv import load_dotenv
 import requests
@@ -24,8 +25,11 @@ class AgnoSentimentAnalyzer:
     def __init__(self):
         """Initialize the HuggingFace Inference API-based sentiment analyzer"""
         self.hf_token = os.environ.get('HF_TOKEN')
-        self.api_url = "https://api-inference.huggingface.co/models"
+        self.api_url = "https://router.huggingface.co"
         self.headers = {"Authorization": f"Bearer {self.hf_token}"} if self.hf_token else {}
+        self.chat_model = os.environ.get(
+            "EUNOIA_HF_CHAT_MODEL", "HuggingFaceTB/SmolLM3-3B:hf-inference"
+        )
         self.positive_cues = {
             "grateful": 0.8,
             "thankful": 0.8,
@@ -130,6 +134,12 @@ class AgnoSentimentAnalyzer:
             text = text.strip()
             if not text:
                 return self._get_empty_analysis()
+
+            # Prefer the router-based LLM path for deeper, more human analysis.
+            llm_result = self._analyze_with_chat_completion(text)
+            if llm_result is not None:
+                llm_result["analysis_method"] = "agno"
+                return llm_result
             
             # Analyze sentiment
             sentiment_result = self._analyze_sentiment_agno(text)
@@ -170,6 +180,121 @@ class AgnoSentimentAnalyzer:
         except Exception as e:
             logger.error(f"Error in Agno analysis: {e}")
             return self._fallback_analysis(text)
+
+    def _analyze_with_chat_completion(self, text: str) -> Optional[Dict]:
+        if not self.agno_enabled:
+            return None
+
+        url = f"{self.api_url}/v1/chat/completions"
+        payload = {
+            "model": self.chat_model,
+            "temperature": 0.2,
+            "max_tokens": 420,
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You analyze journal entries with empathy and precision. "
+                        "Return valid JSON only. "
+                        "Use these keys exactly: sentiment_score, sentiment_label, emotion, "
+                        "emotion_confidence, emotions_detected, emotion_group, stress_level, "
+                        "insights, analysis_confidence. "
+                        "sentiment_score and stress_level must be numbers from 0.0 to 10.0. "
+                        "emotion_confidence and analysis_confidence must be 0.0 to 1.0. "
+                        "sentiment_label must be positive, neutral, or negative. "
+                        "emotion_group must be positive, neutral, or negative. "
+                        "emotion must be a lowercase single primary emotion. "
+                        "emotions_detected must be an array of up to 4 [emotion, confidence] pairs. "
+                        "insights must be an array of 2 or 3 short, human-sounding observations that reflect the actual entry."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        "Analyze this journal entry and be nuanced rather than flattening mixed emotions.\n\n"
+                        f"Journal entry:\n{text}"
+                    ),
+                },
+            ],
+        }
+
+        try:
+            response = requests.post(url, headers=self.headers, json=payload, timeout=45)
+            if response.status_code != 200:
+                logger.error(f"HuggingFace chat completion error: {response.status_code} {response.text[:200]}")
+                return None
+
+            data = response.json()
+            content = (
+                data.get("choices", [{}])[0]
+                .get("message", {})
+                .get("content", "")
+            )
+            parsed = self._parse_chat_analysis(content)
+            return parsed
+        except Exception as e:
+            logger.error(f"Error in HuggingFace chat completion analysis: {e}")
+            return None
+
+    def _parse_chat_analysis(self, content: str) -> Optional[Dict]:
+        if not content:
+            return None
+
+        try:
+            parsed = json.loads(content)
+        except json.JSONDecodeError:
+            match = re.search(r"\{.*\}", content, re.DOTALL)
+            if not match:
+                return None
+            try:
+                parsed = json.loads(match.group(0))
+            except json.JSONDecodeError:
+                return None
+
+        emotions_raw = parsed.get("emotions_detected", []) or []
+        emotions_detected: List[List[object]] = []
+        for item in emotions_raw[:4]:
+            if isinstance(item, (list, tuple)) and len(item) >= 2:
+                emotions_detected.append([str(item[0]).lower(), round(float(item[1]), 3)])
+
+        sentiment_score = round(max(0.0, min(10.0, float(parsed.get("sentiment_score", 5.0)))), 3)
+        stress_level = round(max(0.0, min(10.0, float(parsed.get("stress_level", 3.0)))), 3)
+        emotion_confidence = round(max(0.0, min(1.0, float(parsed.get("emotion_confidence", 0.6)))), 3)
+        analysis_confidence = round(max(0.0, min(1.0, float(parsed.get("analysis_confidence", 0.65)))), 3)
+        sentiment_label = str(parsed.get("sentiment_label", "neutral")).lower()
+        emotion_group = str(parsed.get("emotion_group", "neutral")).lower()
+        emotion = str(parsed.get("emotion", "neutral")).lower()
+        insights = [
+            str(item).strip()
+            for item in (parsed.get("insights", []) or [])
+            if str(item).strip()
+        ][:3]
+
+        if sentiment_label not in {"positive", "neutral", "negative"}:
+            sentiment_label = "positive" if sentiment_score >= 6.2 else "negative" if sentiment_score <= 4.2 else "neutral"
+        if emotion_group not in {"positive", "neutral", "negative"}:
+            emotion_group = sentiment_label
+        if not emotions_detected:
+            emotions_detected = [[emotion, emotion_confidence]]
+        if not insights:
+            insights = self._get_fallback_insights(
+                {"label": sentiment_label, "score": sentiment_score, "confidence": analysis_confidence},
+                {"primary_emotion": emotion, "emotion_group": emotion_group},
+            )
+
+        return {
+            "sentiment_score": sentiment_score,
+            "sentiment_label": sentiment_label,
+            "emotion": emotion,
+            "emotion_confidence": emotion_confidence,
+            "emotions_detected": emotions_detected,
+            "emotion_group": emotion_group,
+            "stress_level": stress_level,
+            "insights": insights,
+            "embeddings": None,
+            "analysis_confidence": analysis_confidence,
+        }
 
     def _count_weighted_cues(self, text: str, cues: Dict[str, float]) -> float:
         text_lower = text.lower()
