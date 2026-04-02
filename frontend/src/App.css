@@ -938,6 +938,10 @@
   font-size: 0.92rem;
 }
 
+.entry-meta-text {
+  line-height: 1.4;
+}
+
 .entry-badges {
   display: flex;
   align-items: center;
@@ -1249,6 +1253,19 @@ textarea:focus {
   .toolbar-actions {
     width: 100%;
     justify-content: flex-end;
+  }
+
+  .entry-meta {
+    width: 100%;
+    gap: 8px;
+    font-size: 0.84rem;
+  }
+
+  .entry-meta-text {
+    display: inline-block;
+    max-width: 100%;
+    line-height: 1.5;
+    word-break: break-word;
   }
 
   .profile-trigger {

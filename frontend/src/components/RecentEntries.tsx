@@ -99,6 +99,7 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
+      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     });
@@ -214,7 +215,7 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
               <div className="entry-header">
                 <div className="entry-meta">
                   <Calendar className="h-4 w-4" />
-                  <span>{formatDate(entry.date)}</span>
+                  <span className="entry-meta-text">{formatDate(entry.date)}</span>
                 </div>
                 <div className="entry-badges">
                   <span className="entry-badge">{getEmotionEmoji(entry.emotion)}</span>
