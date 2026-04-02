@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BookOpen, Calendar, Heart, Brain, Sparkles } from 'lucide-react';
+import { BookOpen, Heart, Brain, Sparkles } from 'lucide-react';
 import { journalApi } from '../services/api';
 import { JournalEntry } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -136,6 +136,21 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
     return 'Neutral';
   };
 
+  const getMoodIconColor = (score: number | null) => {
+    const mood = getMoodLabel(score);
+    if (mood === 'Negative') return '#eab308';
+    if (mood === 'Positive') return 'var(--icon-accent)';
+    return '#64748b';
+  };
+
+  const getStressIconColor = (level: number | null) => {
+    const stress = getStressLabel(level);
+    if (stress === 'Low') return '#16a34a';
+    if (stress === 'High') return '#ef4444';
+    if (stress === 'Medium') return '#f97316';
+    return 'var(--icon-heart)';
+  };
+
   if (authLoading || loading) {
     return (
       <div className="panel-card entries-card">
@@ -214,7 +229,6 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
             <article key={entry.id} className="entry-card">
               <div className="entry-header">
                 <div className="entry-meta">
-                  <Calendar className="h-4 w-4" />
                   <span className="entry-meta-text">{formatDate(entry.date)}</span>
                 </div>
                 <div className="entry-badges">
@@ -229,13 +243,13 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ newEntries = [] }) => {
               <div className="entry-footer">
                 <div className="entry-badges">
                   <span className="entry-badge">
-                    <Brain className="h-4 w-4" style={{ color: 'var(--icon-accent)' }} />
+                    <Brain className="h-4 w-4" style={{ color: getMoodIconColor(entry.sentiment_score) }} />
                     {entry.sentiment_score !== null
                       ? `${entry.sentiment_score.toFixed(1)}/10`
                       : 'N/A'}
                   </span>
                   <span className="entry-badge">
-                    <Heart className="h-4 w-4" style={{ color: 'var(--icon-heart)' }} />
+                    <Heart className="h-4 w-4" style={{ color: getStressIconColor(entry.stress_level) }} />
                     {getStressLabel(entry.stress_level)}
                   </span>
                 </div>
