@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { Mail, Lock } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import AuthTextField from './AuthTextField';
+import { friendlyAuthError } from '../../utils/authErrorMessages';
 
 interface LoginFormProps {
   onToggleMode: () => void;
@@ -11,102 +13,116 @@ const LoginForm: React.FC<LoginFormProps> = ({ onToggleMode }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const [error, setError] = useState('');
+  const [resetNotice, setResetNotice] = useState('');
 
-  const { signIn } = useAuth();
+  const { signIn, resetPasswordForEmail } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setResetNotice('');
 
     try {
-      const { error } = await signIn(email, password);
-      if (error) {
-        const errorMessage =
-          error && typeof error === 'object' && 'message' in error
-            ? String(error.message)
-            : 'Login failed. Please check your credentials.';
-        setError(errorMessage);
+      const { error: signInError } = await signIn(email, password);
+      if (signInError) {
+        setError(friendlyAuthError(signInError));
       }
-    } catch (err) {
-      setError('An unexpected error occurred');
+    } catch {
+      setError(friendlyAuthError(new Error('An unexpected error occurred')));
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="w-full">
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-900">Welcome back</h2>
-        <p className="text-gray-600 mt-2">
-          Sign in to continue your journal and pick up where you left off.
-        </p>
-      </div>
+  const handleForgotPassword = async () => {
+    setError('');
+    setResetNotice('');
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setError(
+        'Enter your email above, then tap "Forgot password?" so we know where to send the link.',
+      );
+      return;
+    }
+    setResetLoading(true);
+    try {
+      const { error: resetError } = await resetPasswordForEmail(trimmed);
+      if (resetError) {
+        setError(friendlyAuthError(resetError));
+      } else {
+        setResetNotice(
+          'If an account exists for that email, we sent a link to reset your password. Check your inbox and spam folder.',
+        );
+      }
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
-      <form onSubmit={handleSubmit} className="auth-form">
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
+  return (
+    <div className="auth-form-panel">
+      <form onSubmit={handleSubmit} className="auth-form" aria-busy={loading} noValidate>
+        {error ? (
+          <div className="status-banner status-banner-error" role="alert" aria-live="assertive">
             {error}
           </div>
-        )}
-
-        <div className="auth-field">
-          <label htmlFor="email" className="auth-label">
-            Email Address
-          </label>
-          <div className="auth-input-shell">
-            <Mail
-              className={`auth-leading-icon h-5 w-5 ${email ? 'auth-leading-icon-hidden' : ''}`}
-            />
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="auth-input"
-            />
+        ) : null}
+        {resetNotice ? (
+          <div className="status-banner status-banner-success" role="status" aria-live="polite">
+            {resetNotice}
           </div>
-        </div>
+        ) : null}
 
-        <div className="auth-field">
-          <label htmlFor="password" className="auth-label">
-            Password
-          </label>
-          <div className="auth-input-shell">
-            <Lock
-              className={`auth-leading-icon h-5 w-5 ${password ? 'auth-leading-icon-hidden' : ''}`}
-            />
-            <input
-              id="password"
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="auth-input auth-input-with-toggle"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="auth-toggle"
-            >
-              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </button>
-          </div>
-        </div>
+        <AuthTextField
+          id="email"
+          label="Email"
+          value={email}
+          onChange={setEmail}
+          autoComplete="email"
+          placeholder="you@example.com"
+          inputType="email"
+          leadingIcon={Mail}
+        />
+
+        <AuthTextField
+          id="password"
+          label="Password"
+          value={password}
+          onChange={setPassword}
+          autoComplete="current-password"
+          placeholder="••••••••"
+          leadingIcon={Lock}
+          password={{
+            visible: showPassword,
+            onToggle: () => setShowPassword((v) => !v),
+            toggleLabels: { show: 'Show password', hide: 'Hide password' },
+          }}
+        />
+
+        <p className="auth-link-row">
+          <button
+            type="button"
+            className="auth-inline-link"
+            onClick={handleForgotPassword}
+            disabled={resetLoading}
+          >
+            {resetLoading ? 'Sending link…' : 'Forgot password?'}
+          </button>
+        </p>
 
         <button type="submit" disabled={loading} className="auth-primary-button">
-          {loading ? 'Signing In...' : 'Sign In'}
+          {loading ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
 
-      <div className="mt-6 text-center">
-        <p className="text-gray-600">
+      <div className="auth-switch">
+        <p>
           Don&apos;t have an account?{' '}
-          <button onClick={onToggleMode} className="text-blue-600 hover:text-blue-700 font-medium">
-            Sign up
+          <button type="button" className="auth-switch-link" onClick={onToggleMode}>
+            Create one
           </button>
         </p>
       </div>

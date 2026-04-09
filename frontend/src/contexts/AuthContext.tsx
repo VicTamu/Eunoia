@@ -9,6 +9,8 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<{ data: unknown; error: unknown }>;
   signIn: (email: string, password: string) => Promise<{ data: unknown; error: unknown }>;
   signOut: () => Promise<{ error: unknown }>;
+  resetPasswordForEmail: (email: string) => Promise<{ error: unknown }>;
+  resendSignupEmail: (email: string) => Promise<{ error: unknown }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -91,6 +93,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return await auth.signOut();
   };
 
+  const resetPasswordForEmail = async (email: string) => {
+    return await auth.resetPasswordForEmail(email);
+  };
+
+  const resendSignupEmail = async (email: string) => {
+    return await auth.resendSignupEmail(email);
+  };
+
   const value = {
     user,
     session,
@@ -98,6 +108,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signUp,
     signIn,
     signOut,
+    resetPasswordForEmail,
+    resendSignupEmail,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

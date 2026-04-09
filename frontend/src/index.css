@@ -62,6 +62,38 @@
   --bg-veil-1: #eaf7f4;
   --bg-veil-2: #eef2ff;
   --bg-veil-3: #fdf2f8;
+  /* Ambient animation (light) */
+  --ambient-linear: linear-gradient(180deg, #f8fafc, #eef2ff);
+  --ambient-radial-1: rgba(14, 165, 233, 0.12);
+  --ambient-radial-2: rgba(45, 212, 191, 0.12);
+  --ambient-breathe-1: rgba(255, 255, 255, 0.5);
+  --ambient-breathe-2: rgba(238, 242, 255, 0.22);
+  --ambient-orb-1-mid: rgba(125, 180, 210, 0.62);
+  --ambient-orb-1-edge: rgba(125, 180, 210, 0.12);
+  --ambient-orb-2-mid: rgba(165, 180, 252, 0.45);
+  --ambient-orb-2-edge: rgba(165, 180, 252, 0.1);
+  --ambient-orb-3-mid: rgba(94, 208, 193, 0.42);
+  --ambient-orb-3-edge: rgba(94, 208, 193, 0.1);
+  --ambient-orb-4-mid: rgba(148, 163, 184, 0.38);
+  --ambient-orb-4-edge: rgba(148, 163, 184, 0.08);
+  --ambient-veil-a: rgba(125, 190, 235, 0.06);
+  --ambient-veil-b: rgba(94, 208, 193, 0.05);
+  --ambient-veil-c: rgba(165, 180, 252, 0.045);
+  --ambient-static-a: rgba(14, 165, 233, 0.14);
+  --ambient-static-b: rgba(45, 212, 191, 0.14);
+  --ambient-static-c: rgba(165, 180, 252, 0.1);
+  /* Focus, fields, status (shared UI) */
+  --focus-ring-color: var(--accent-color);
+  --focus-ring-glow: color-mix(in srgb, var(--accent-color) 22%, transparent);
+  --card-inset-highlight: rgba(255, 255, 255, 0.78);
+  --auth-field-border: rgba(148, 163, 184, 0.28);
+  --auth-field-inset: rgba(255, 255, 255, 0.65);
+  --status-error-bg: #fef2f2;
+  --status-error-text: #b91c1c;
+  --status-error-border: #fecaca;
+  --status-success-bg: #ecfdf5;
+  --status-success-text: #047857;
+  --status-success-border: #a7f3d0;
 }
 
 .theme-dark {
@@ -119,6 +151,34 @@
   --bg-veil-1: #000205;
   --bg-veil-2: #02060d;
   --bg-veil-3: #050b14;
+  --ambient-linear: linear-gradient(180deg, #020617, #0f172a);
+  --ambient-radial-1: rgba(125, 179, 255, 0.16);
+  --ambient-radial-2: rgba(94, 234, 212, 0.1);
+  --ambient-breathe-1: rgba(30, 58, 138, 0.22);
+  --ambient-breathe-2: rgba(99, 102, 241, 0.12);
+  --ambient-orb-1-mid: rgba(99, 102, 241, 0.38);
+  --ambient-orb-1-edge: rgba(99, 102, 241, 0.08);
+  --ambient-orb-2-mid: rgba(56, 189, 248, 0.28);
+  --ambient-orb-2-edge: rgba(56, 189, 248, 0.06);
+  --ambient-orb-3-mid: rgba(94, 234, 212, 0.22);
+  --ambient-orb-3-edge: rgba(94, 234, 212, 0.06);
+  --ambient-orb-4-mid: rgba(148, 163, 184, 0.22);
+  --ambient-orb-4-edge: rgba(148, 163, 184, 0.06);
+  --ambient-veil-a: rgba(125, 179, 255, 0.07);
+  --ambient-veil-b: rgba(94, 234, 212, 0.05);
+  --ambient-veil-c: rgba(167, 139, 250, 0.06);
+  --ambient-static-a: rgba(125, 179, 255, 0.18);
+  --ambient-static-b: rgba(94, 234, 212, 0.12);
+  --ambient-static-c: rgba(167, 139, 250, 0.1);
+  --card-inset-highlight: rgba(255, 255, 255, 0.1);
+  --auth-field-border: rgba(122, 145, 184, 0.32);
+  --auth-field-inset: rgba(255, 255, 255, 0.06);
+  --status-error-bg: rgba(127, 29, 29, 0.28);
+  --status-error-text: #fecaca;
+  --status-error-border: rgba(248, 113, 113, 0.38);
+  --status-success-bg: rgba(6, 78, 59, 0.35);
+  --status-success-text: #a7f3d0;
+  --status-success-border: rgba(52, 211, 153, 0.35);
 }
 
 .theme-blue {
@@ -176,6 +236,31 @@
   --bg-veil-1: #def4f7;
   --bg-veil-2: #d8eef7;
   --bg-veil-3: #eef9fb;
+  --ambient-linear: linear-gradient(180deg, #f0fafd, #dff3f9);
+  --ambient-radial-1: rgba(14, 165, 233, 0.16);
+  --ambient-radial-2: rgba(56, 189, 248, 0.14);
+  --ambient-breathe-1: rgba(255, 255, 255, 0.55);
+  --ambient-breathe-2: rgba(186, 230, 253, 0.28);
+  --ambient-orb-1-mid: rgba(56, 189, 248, 0.5);
+  --ambient-orb-1-edge: rgba(56, 189, 248, 0.12);
+  --ambient-orb-2-mid: rgba(125, 211, 252, 0.42);
+  --ambient-orb-2-edge: rgba(125, 211, 252, 0.1);
+  --ambient-orb-3-mid: rgba(14, 165, 233, 0.38);
+  --ambient-orb-3-edge: rgba(14, 165, 233, 0.1);
+  --ambient-orb-4-mid: rgba(147, 197, 253, 0.36);
+  --ambient-orb-4-edge: rgba(147, 197, 253, 0.1);
+  --ambient-veil-a: rgba(56, 189, 248, 0.07);
+  --ambient-veil-b: rgba(14, 165, 233, 0.06);
+  --ambient-veil-c: rgba(125, 211, 252, 0.055);
+  --ambient-static-a: rgba(14, 165, 233, 0.16);
+  --ambient-static-b: rgba(56, 189, 248, 0.14);
+  --ambient-static-c: rgba(186, 230, 253, 0.12);
+  --status-error-bg: #fef2f2;
+  --status-error-text: #9f1239;
+  --status-error-border: #fecdd3;
+  --status-success-bg: #ecfdf5;
+  --status-success-text: #0f766e;
+  --status-success-border: #99f6e4;
 }
 
 .theme-green {
@@ -233,6 +318,31 @@
   --bg-veil-1: #e6f0e4;
   --bg-veil-2: #edf5e7;
   --bg-veil-3: #f6faef;
+  --ambient-linear: linear-gradient(180deg, #f4faf4, #eaf4e8);
+  --ambient-radial-1: rgba(74, 222, 128, 0.14);
+  --ambient-radial-2: rgba(52, 211, 153, 0.12);
+  --ambient-breathe-1: rgba(255, 255, 255, 0.52);
+  --ambient-breathe-2: rgba(209, 250, 229, 0.28);
+  --ambient-orb-1-mid: rgba(134, 239, 172, 0.45);
+  --ambient-orb-1-edge: rgba(134, 239, 172, 0.1);
+  --ambient-orb-2-mid: rgba(110, 231, 183, 0.4);
+  --ambient-orb-2-edge: rgba(110, 231, 183, 0.09);
+  --ambient-orb-3-mid: rgba(47, 143, 87, 0.32);
+  --ambient-orb-3-edge: rgba(47, 143, 87, 0.08);
+  --ambient-orb-4-mid: rgba(163, 196, 154, 0.38);
+  --ambient-orb-4-edge: rgba(163, 196, 154, 0.09);
+  --ambient-veil-a: rgba(134, 239, 172, 0.065);
+  --ambient-veil-b: rgba(52, 211, 153, 0.055);
+  --ambient-veil-c: rgba(190, 242, 100, 0.045);
+  --ambient-static-a: rgba(74, 222, 128, 0.15);
+  --ambient-static-b: rgba(52, 211, 153, 0.13);
+  --ambient-static-c: rgba(190, 242, 100, 0.1);
+  --status-error-bg: #fef2f2;
+  --status-error-text: #9f1239;
+  --status-error-border: #fecdd3;
+  --status-success-bg: #ecfdf5;
+  --status-success-text: #166534;
+  --status-success-border: #bbf7d0;
 }
 
 body {
@@ -246,12 +356,6 @@ body {
   transition:
     background-color 0.3s ease,
     color 0.3s ease;
-  /* Subtle, accessible aurora background that respects contrast */
-  background-image:
-    radial-gradient(1200px 600px at 10% 0%, var(--bg-veil-1), transparent 60%),
-    radial-gradient(1000px 500px at 90% 20%, var(--bg-veil-2), transparent 60%),
-    radial-gradient(900px 500px at 50% 120%, var(--bg-veil-3), transparent 60%);
-  background-attachment: fixed;
 }
 
 /* Optional utility to show aurora on containers that cover the body */
