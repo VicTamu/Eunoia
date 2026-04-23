@@ -158,6 +158,11 @@ const routes = {
   insights: () => '/analytics/insights',
 };
 
+interface PaginatedEntriesResponse {
+  entries?: JournalEntry[];
+  has_next?: boolean;
+}
+
 export const journalApi = {
   // Create a new journal entry
   createEntry: async (entry: JournalEntryCreate): Promise<JournalEntry> => {
@@ -169,6 +174,26 @@ export const journalApi = {
   getEntries: async (page = 1, perPage = 10): Promise<JournalEntry[]> => {
     const { data } = await api.get(routes.entries(page, perPage));
     return (data?.entries as JournalEntry[]) ?? [];
+  },
+
+  // Get the complete saved entry history for the current user
+  getAllEntries: async (): Promise<JournalEntry[]> => {
+    const perPage = 100;
+    let page = 1;
+    let hasNext = true;
+    const allEntries: JournalEntry[] = [];
+
+    while (hasNext) {
+      const { data } = await api.get(routes.entries(page, perPage));
+      const payload = (data ?? {}) as PaginatedEntriesResponse;
+      const pageEntries = payload.entries ?? [];
+
+      allEntries.push(...pageEntries);
+      hasNext = Boolean(payload.has_next) && pageEntries.length > 0;
+      page += 1;
+    }
+
+    return allEntries;
   },
 
   // Get a specific journal entry

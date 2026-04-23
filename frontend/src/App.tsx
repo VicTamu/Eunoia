@@ -9,6 +9,7 @@ import { useAuth } from './contexts/AuthContext';
 import AmbientBackground from './components/AmbientBackground';
 import AuthScreen from './components/Auth/AuthScreen';
 import LandingPage from './components/LandingPage';
+import { journalApi } from './services/api';
 import './App.css';
 
 type TabType = 'write' | 'dashboard' | 'entries';
@@ -19,7 +20,7 @@ function App() {
   const { user, loading, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('write');
   const [entries, setEntries] = useState<JournalEntryType[]>([]);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [entriesLoading, setEntriesLoading] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [guestView, setGuestView] = useState<GuestView>('landing');
   const [signUpEmailSent, setSignUpEmailSent] = useState(false);
@@ -32,16 +33,48 @@ function App() {
     }
   }, [authMode]);
 
+  useEffect(() => {
+    if (!user || loading) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadEntries = async () => {
+      try {
+        setEntriesLoading(true);
+        const allEntries = await journalApi.getAllEntries();
+        if (isMounted) {
+          setEntries(allEntries);
+        }
+      } catch (error) {
+        console.error('Error loading entries:', error);
+        if (isMounted) {
+          setEntries([]);
+        }
+      } finally {
+        if (isMounted) {
+          setEntriesLoading(false);
+        }
+      }
+    };
+
+    loadEntries();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user, loading]);
+
   const handleEntrySaved = (newEntry: JournalEntryType) => {
-    setEntries((prev) => [newEntry, ...prev]);
-    setRefreshKey((prev) => prev + 1);
+    setEntries((prev) => [newEntry, ...prev.filter((entry) => entry.id !== newEntry.id)]);
   };
 
   const handleSignOut = async () => {
     try {
       await signOut();
       setEntries([]);
-      setRefreshKey(0);
+      setEntriesLoading(false);
       setGuestView('landing');
     } catch (error) {
       console.error('Error signing out:', error);
@@ -141,8 +174,8 @@ function App() {
 
         <main className="page-stage">
           {activeTab === 'write' && <JournalEntry onEntrySaved={handleEntrySaved} />}
-          {activeTab === 'dashboard' && <Dashboard key={refreshKey} />}
-          {activeTab === 'entries' && <RecentEntries key={refreshKey} newEntries={entries} />}
+          {activeTab === 'dashboard' && <Dashboard entries={entries} loading={entriesLoading} />}
+          {activeTab === 'entries' && <RecentEntries entries={entries} loading={entriesLoading} />}
         </main>
 
         <footer className="footer-card">
