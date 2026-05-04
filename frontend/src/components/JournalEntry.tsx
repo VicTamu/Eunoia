@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Calendar, Save, Loader2 } from 'lucide-react';
 import { journalApi } from '../services/api';
 import { JournalEntry as JournalEntryType } from '../types';
@@ -12,6 +12,15 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ onEntrySaved }) => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [showDateEditor, setShowDateEditor] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = '0px';
+    textarea.style.height = `${Math.max(textarea.scrollHeight, 260)}px`;
+  }, [content]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +42,7 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ onEntrySaved }) => {
 
       onEntrySaved(entry);
       setContent('');
-      setMessage('Entry saved successfully! 🎉');
+      setMessage('Entry saved successfully.');
 
       // Clear success message after 3 seconds
       setTimeout(() => setMessage(''), 3000);
@@ -45,62 +54,112 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ onEntrySaved }) => {
     }
   };
 
-  const getPlaceholderText = () => {
+  const getPromptPool = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning! How are you feeling today? What are your plans?';
-    if (hour < 18) return 'Good afternoon! How has your day been so far?';
-    return 'Good evening! How was your day? What are you grateful for?';
+    if (hour < 12) {
+      return [
+        'What does your body need from you this morning?',
+        'What are you carrying into today that needs gentleness?',
+        'What feels hopeful, even if only a little?',
+        'What would make today feel steady instead of rushed?',
+        'What part of you needs a softer beginning today?',
+      ];
+    }
+    if (hour < 18) {
+      return [
+        'What has stayed with you so far today?',
+        'Where have you felt stretched, and where have you felt steady?',
+        'What is asking for a little more gentleness this afternoon?',
+        'What is your mind circling back to this afternoon?',
+        'What deserves a pause before the day keeps moving?',
+      ];
+    }
+    return [
+      'What felt most alive today?',
+      'What is something your body is telling you right now?',
+      'What felt heavy today, and what helped you carry it?',
+      'What are you grateful for, even if the day felt complicated?',
+      'What do you want tomorrow to protect a little better?',
+    ];
   };
+
+  const promptPool = useMemo(getPromptPool, []);
+  const todayPrompt = useMemo(() => {
+    const daySeed = new Date().getDate() + new Date().getMonth() * 31 + new Date().getHours();
+    return promptPool[daySeed % promptPool.length];
+  }, [promptPool]);
+
+  const wordCount = content.split(/\s+/).filter((word) => word.length > 0).length;
+  const journalNudge =
+    wordCount >= 200
+      ? 'That is a lot to carry. Well done for writing it down.'
+      : wordCount >= 50
+        ? 'Keep going... there may be more here than you thought.'
+        : '';
+
+  const formattedEntryDate = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(`${selectedDate}T00:00:00`));
 
   return (
     <div className="journal-layout">
       <div className="panel-card journal-card">
         <div className="section-heading">
-          <div>
+          <div className="section-heading-top">
             <div className="eyebrow">
               <Calendar className="h-4 w-4" />
               Daily reflection
             </div>
-            <h2 className="section-title mt-4">What felt most alive today?</h2>
-            <p className="section-copy mt-2">
-              Write freely. Eunoia will help you notice the emotional shape of the day without
-              interrupting the writing itself.
-            </p>
+            <div className="field-date-display">
+              <span className="field-date-label">Writing for</span>
+              <span>{formattedEntryDate}</span>
+              <button
+                type="button"
+                className="field-inline-link"
+                onClick={() => setShowDateEditor((current) => !current)}
+              >
+                {showDateEditor ? 'Hide' : 'Edit'}
+              </button>
+            </div>
           </div>
+          <p className="journal-guidance">Start where you are, a few honest sentences are enough.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="field-shell">
-            <label htmlFor="date" className="field-label">
-              Entry date
-            </label>
-            <input
-              type="date"
-              id="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="field-input"
-              max={new Date().toISOString().split('T')[0]}
-            />
-          </div>
+          {showDateEditor ? (
+            <div className="field-shell">
+              <input
+                type="date"
+                id="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="field-input"
+                max={new Date().toISOString().split('T')[0]}
+              />
+            </div>
+          ) : null}
 
           <div className="field-shell">
-            <label htmlFor="content" className="field-label">
-              Your journal entry
-            </label>
             <textarea
+              ref={textareaRef}
               id="content"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder={getPlaceholderText()}
-              className="field-textarea resize-none"
+              placeholder={todayPrompt}
+              className="field-textarea journal-textarea"
               rows={6}
               disabled={isLoading}
             />
-            <div className="journal-toolbar">
-              <span>{content.length} characters</span>
-              <span>{content.split(/\s+/).filter((word) => word.length > 0).length} words</span>
-            </div>
+            {content.trim() ? (
+              <div className="journal-toolbar journal-toolbar-soft">
+                <span>{content.length} characters</span>
+                <span>{wordCount} words</span>
+              </div>
+            ) : null}
+            {journalNudge ? <div className="journal-nudge">{journalNudge}</div> : null}
           </div>
 
           {message && (
@@ -129,13 +188,6 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ onEntrySaved }) => {
             )}
           </button>
         </form>
-
-        <div className="minimal-note">
-          <p>
-            Start simple: what stayed with you today, where you felt stretched or steady, and what
-            you might need a little more of tomorrow.
-          </p>
-        </div>
       </div>
     </div>
   );

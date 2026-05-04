@@ -7,15 +7,17 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  LineChart,
+  AreaChart,
+  Area,
   Line,
 } from 'recharts';
-import { TrendingUp, Brain, Heart, Calendar, AlertCircle } from 'lucide-react';
+import { TrendingUp, Brain, Heart, Calendar, AlertCircle, PenSquare, Sparkles } from 'lucide-react';
 import { Insight, JournalEntry as JournalEntryType, SentimentTrend } from '../types';
 
 interface DashboardProps {
   entries: JournalEntryType[];
   loading?: boolean;
+  onStartWriting?: () => void;
 }
 
 type InsightSummary = Insight & {
@@ -46,7 +48,36 @@ const getMostCommon = (values: string[]) => {
   return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ entries, loading = false }) => {
+const getMoodInterpretation = (value: number) => {
+  if (value >= 8.5) {
+    return 'You have mostly been meeting yourself from a strong, steady place.';
+  }
+  if (value >= 7) {
+    return 'You have been carrying things fairly well, with more ease than heaviness.';
+  }
+  if (value >= 5) {
+    return 'Your days look mixed right now, with both steadiness and strain showing up.';
+  }
+  if (value >= 3.5) {
+    return 'The tone has been heavier lately, even when moments of relief still break through.';
+  }
+  return 'A lot has been weighing on you lately, and that deserves gentleness.';
+};
+
+const getStressInterpretation = (value: number) => {
+  if (value >= 8) {
+    return 'Stress has been arriving loudly and often.';
+  }
+  if (value >= 6) {
+    return 'Stress has been showing up enough to shape the week.';
+  }
+  if (value >= 3.5) {
+    return 'Stress is present, but not defining everything.';
+  }
+  return 'Things have felt comparatively lighter than your heavier stretches.';
+};
+
+const Dashboard: React.FC<DashboardProps> = ({ entries, loading = false, onStartWriting }) => {
   const trends = useMemo<SentimentTrend[]>(() => {
     const dailyData = new Map<
       string,
@@ -184,14 +215,21 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, loading = false }) => {
       day: 'numeric',
     });
 
-  const averageMood =
+  const hasWrittenToday = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    return entries.some((entry) => getDateKey(entry) === today);
+  }, [entries]);
+
+  const averageMoodValue =
     trends.length > 0
-      ? (trends.reduce((sum, trend) => sum + trend.avg_sentiment, 0) / trends.length).toFixed(1)
-      : '0.0';
-  const averageStress =
+      ? trends.reduce((sum, trend) => sum + trend.avg_sentiment, 0) / trends.length
+      : 0;
+  const averageStressValue =
     trends.length > 0
-      ? (trends.reduce((sum, trend) => sum + trend.avg_stress, 0) / trends.length).toFixed(1)
-      : '0.0';
+      ? trends.reduce((sum, trend) => sum + trend.avg_stress, 0) / trends.length
+      : 0;
+  const averageMood = averageMoodValue.toFixed(1);
+  const averageStress = averageStressValue.toFixed(1);
 
   if (loading) {
     return (
@@ -218,16 +256,43 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, loading = false }) => {
 
   return (
     <div className="space-y-6">
+      <div className="panel-card dashboard-nudge-card">
+        <div className="dashboard-nudge-copy">
+          <div className="eyebrow">
+            <Sparkles className="h-4 w-4" />
+            Reflection loop
+          </div>
+          <h3 className="dashboard-nudge-title">
+            {hasWrittenToday
+              ? 'You wrote today. Here is how the week is shaping up.'
+              : 'You have not written today yet.'}
+          </h3>
+          <p className="muted-copy">
+            {hasWrittenToday
+              ? 'Your newest entry is already helping the patterns feel more honest and current.'
+              : 'A short check-in now will make the dashboard feel more useful, and more true to where you are.'}
+          </p>
+        </div>
+        {!hasWrittenToday ? (
+          <button type="button" className="dashboard-nudge-button" onClick={onStartWriting}>
+            <PenSquare className="h-4 w-4" />
+            Start your reflection
+          </button>
+        ) : null}
+      </div>
+
       <div className="overview-grid">
         <div className="metric-card">
           <TrendingUp className="h-5 w-5" style={{ color: 'var(--icon-accent)' }} />
           <strong>{averageMood}</strong>
-          <span>Average mood across all saved entries.</span>
+          <span>Mood across all saved entries.</span>
+          <p className="metric-meaning">{getMoodInterpretation(averageMoodValue)}</p>
         </div>
         <div className="metric-card">
           <Heart className="h-5 w-5" style={{ color: 'var(--icon-heart)' }} />
           <strong>{averageStress}</strong>
-          <span>Average stress level across the same history.</span>
+          <span>Stress across the same history.</span>
+          <p className="metric-meaning">{getStressInterpretation(averageStressValue)}</p>
         </div>
       </div>
 
@@ -249,6 +314,17 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, loading = false }) => {
         <div className="insight-list">
           {insights.insights.map((insight, index) => (
             <div key={index} className="insight-pill">
+              <span className="insight-pill-icon" aria-hidden>
+                {index === 0 ? (
+                  <Calendar className="h-4 w-4" />
+                ) : index === 1 ? (
+                  <TrendingUp className="h-4 w-4" />
+                ) : index === 2 ? (
+                  <Heart className="h-4 w-4" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+              </span>
               {insight}
             </div>
           ))}
@@ -288,22 +364,40 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, loading = false }) => {
           </div>
 
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={trends}>
-              <CartesianGrid strokeDasharray="3 3" />
+            <AreaChart data={trends}>
+              <defs>
+                <linearGradient id="moodAreaFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--chart-line)" stopOpacity={0.22} />
+                  <stop offset="100%" stopColor="var(--chart-line)" stopOpacity={0.03} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                stroke="rgba(148, 163, 184, 0.18)"
+                strokeDasharray="4 6"
+                vertical={false}
+              />
               <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 12 }} />
               <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} />
               <Tooltip
                 labelFormatter={(value) => formatDate(value)}
-                formatter={(value: number) => [value.toFixed(2), 'Mood']}
+                formatter={(value: number) => [value.toFixed(1), 'Mood']}
+              />
+              <Area
+                type="monotone"
+                dataKey="avg_sentiment"
+                stroke="none"
+                fill="url(#moodAreaFill)"
               />
               <Line
                 type="monotone"
                 dataKey="avg_sentiment"
                 stroke="var(--chart-line)"
-                strokeWidth={3}
-                dot={{ fill: 'var(--chart-line)', strokeWidth: 2, r: 4 }}
+                strokeWidth={3.5}
+                strokeLinecap="round"
+                dot={{ fill: 'var(--chart-line)', strokeWidth: 0, r: 4.5 }}
+                activeDot={{ r: 6, fill: 'var(--chart-line)' }}
               />
-            </LineChart>
+            </AreaChart>
           </ResponsiveContainer>
         </div>
 
@@ -322,14 +416,18 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, loading = false }) => {
 
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={trends}>
-              <CartesianGrid strokeDasharray="3 3" />
+              <CartesianGrid
+                stroke="rgba(148, 163, 184, 0.18)"
+                strokeDasharray="4 6"
+                vertical={false}
+              />
               <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 12 }} />
               <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} />
               <Tooltip
                 labelFormatter={(value) => formatDate(value)}
                 formatter={(value: number) => [value.toFixed(1), 'Stress']}
               />
-              <Bar dataKey="avg_stress" fill="var(--chart-bar)" radius={[10, 10, 0, 0]} />
+              <Bar dataKey="avg_stress" fill="#d28e8a" radius={[12, 12, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

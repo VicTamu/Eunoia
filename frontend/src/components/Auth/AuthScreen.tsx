@@ -1,5 +1,5 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
-import { ArrowLeft, BookOpen, Mail, UserPlus } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowLeft, Leaf, Mail, UserPlus } from 'lucide-react';
 import AmbientBackground from '../AmbientBackground';
 import LoginForm from './LoginForm';
 import SignupForm from './SignupForm';
@@ -57,7 +57,9 @@ function SignupVerificationPanel({
       </p>
       {resendMessage ? (
         <div
-          className={`status-banner ${resendMessage.type === 'ok' ? 'status-banner-success' : 'status-banner-error'}`}
+          className={`status-banner ${
+            resendMessage.type === 'ok' ? 'status-banner-success' : 'status-banner-error'
+          }`}
           role={resendMessage.type === 'err' ? 'alert' : 'status'}
           aria-live="polite"
         >
@@ -71,7 +73,7 @@ function SignupVerificationPanel({
           onClick={handleResend}
           disabled={sending || !email.trim()}
         >
-          {sending ? 'Sending…' : 'Resend confirmation email'}
+          {sending ? 'Sending...' : 'Resend confirmation email'}
         </button>
         <button type="button" className="auth-primary-button" onClick={onBackToSignIn}>
           Back to sign in
@@ -89,19 +91,14 @@ export default function AuthScreen({
   onRegistered,
   onBackToLanding,
 }: AuthScreenProps) {
-  const authWhyRef = useRef<HTMLDetailsElement>(null);
-
-  useLayoutEffect(() => {
-    const el = authWhyRef.current;
-    if (!el) return;
-    const mq = window.matchMedia('(min-width: 1025px)');
-    const syncOpen = () => {
-      el.open = mq.matches;
-    };
-    syncOpen();
-    mq.addEventListener('change', syncOpen);
-    return () => mq.removeEventListener('change', syncOpen);
-  }, []);
+  const loginLead = (
+    <>
+      <span className="auth-story-lead-line">Come back to yourself.</span>
+      <span className="auth-story-lead-line">
+        Your entries, patterns, and everything you noticed are still here, still yours.
+      </span>
+    </>
+  );
 
   const shellContext =
     mode === 'login'
@@ -127,27 +124,15 @@ export default function AuthScreen({
       </header>
 
       <section className="auth-story auth-story--compact">
-        <div>
-          <h1>You&apos;re almost there</h1>
+        <div className="auth-story-copy">
+          <h1>{mode === 'login' ? 'Your space is waiting.' : 'Start your reflection space.'}</h1>
           <p className="auth-story-lead">
-            Sign in to open your journal—your entries and trends stay private to you.
+            {mode === 'login'
+              ? loginLead
+              : (
+              'Create your account to keep your journal private, steady, and ready when you need it.'
+            )}
           </p>
-
-          <details ref={authWhyRef} className="auth-why">
-            <summary className="auth-why-summary">Why Eunoia?</summary>
-            <ul className="auth-why-list">
-              <li>
-                <strong>Write</strong> — A calm space for quick check-ins or longer reflections.
-              </li>
-              <li>
-                <strong>Notice</strong> — Mood and stress patterns over time, without chart
-                overload.
-              </li>
-              <li>
-                <strong>Privacy</strong> — Built for personal journaling first.
-              </li>
-            </ul>
-          </details>
         </div>
       </section>
 
@@ -157,7 +142,7 @@ export default function AuthScreen({
             <header className="auth-card-header auth-card-header--compact">
               <div className="auth-mini-brand">
                 <span className="auth-mini-brand-mark">
-                  <BookOpen className="h-6 w-6" aria-hidden />
+                  <Leaf className="h-6 w-6" aria-hidden />
                 </span>
                 <div>
                   <strong className="auth-card-product-name">Eunoia</strong>
@@ -170,14 +155,14 @@ export default function AuthScreen({
               </div>
               <h2 className="auth-card-title">Check your email</h2>
               <p className="auth-card-lead">
-                One more step to keep your journal private—we need to confirm this address.
+                One more step to keep your journal private. We need to confirm this address.
               </p>
             </header>
           ) : (
             <header className="auth-card-header">
               <div className="auth-mini-brand">
                 <span className="auth-mini-brand-mark">
-                  <BookOpen className="h-6 w-6" aria-hidden />
+                  <Leaf className="h-6 w-6" aria-hidden />
                 </span>
                 <div>
                   <strong className="auth-card-product-name">Eunoia</strong>
@@ -190,12 +175,10 @@ export default function AuthScreen({
                   New account
                 </div>
               ) : null}
-              <h2 className="auth-card-title">
-                {mode === 'login' ? 'Welcome back!' : 'Create your account'}
-              </h2>
+              {mode === 'signup' ? <h2 className="auth-card-title">Create your account</h2> : null}
               {mode === 'signup' ? (
                 <p className="auth-card-lead">
-                  Start your journaling rhythm—takes less than a minute.
+                  Start your journaling rhythm. It takes less than a minute.
                 </p>
               ) : null}
             </header>
@@ -218,7 +201,8 @@ export default function AuthScreen({
 
       <footer className="auth-shell-footer">
         <p className="auth-shell-footer-text">
-          Reflect with a little more honesty. Notice yourself with a little more grace.
+          Your journal is personal. Eunoia keeps the experience calm, private, and easy to return
+          to.
         </p>
       </footer>
     </div>

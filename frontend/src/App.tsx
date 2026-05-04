@@ -87,6 +87,44 @@ function App() {
     { id: 'entries' as TabType, label: 'Entries', icon: Home },
   ];
 
+  const metadataName =
+    user?.user_metadata?.display_name?.split(' ')[0] ||
+    user?.user_metadata?.full_name?.split(' ')[0];
+  const safeFirstName =
+    metadataName && /^[A-Za-z][A-Za-z' -]{1,24}$/.test(metadataName) ? metadataName : '';
+
+  const timeOfDay = (() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'morning';
+    if (hour < 18) return 'afternoon';
+    return 'evening';
+  })();
+
+  const formattedToday = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date());
+
+  const heroCopy =
+    activeTab === 'write'
+      ? {
+          eyebrow: `${formattedToday}`,
+          title: safeFirstName ? `Good ${timeOfDay}, ${safeFirstName}.` : `Good ${timeOfDay}.`,
+          lead: 'Reflect with a little more honesty. Notice yourself with a little more grace.',
+        }
+      : activeTab === 'dashboard'
+        ? {
+            eyebrow: 'Your patterns, gently gathered',
+            title: safeFirstName ? `Good ${timeOfDay}, ${safeFirstName}.` : `Good ${timeOfDay}.`,
+            lead: 'This is where your recent reflections start turning into something readable, warm, and a little more useful.',
+          }
+        : {
+            eyebrow: 'Your reflection timeline',
+            title: safeFirstName ? `Good ${timeOfDay}, ${safeFirstName}.` : `Good ${timeOfDay}.`,
+            lead: 'Revisit what you have been carrying, noticing, and moving through without losing the human texture of the writing.',
+          };
+
   if (loading) {
     return (
       <div className="guest-loading-shell">
@@ -134,17 +172,14 @@ function App() {
     <div className="app-shell">
       <AmbientBackground />
       <div className="app-frame">
-        <section className="hero-card">
+        <section className="hero-card hero-card-personal">
           <div className="hero-copy">
             <div className="eyebrow">
               <ShieldCheck className="h-4 w-4" />
-              Private reflection space
+              {heroCopy.eyebrow}
             </div>
-            <h1 className="hero-title">A calmer place to write, notice, and understand.</h1>
-            <p className="hero-lead">
-              Eunoia turns daily journaling into a gentle rhythm. Write freely, revisit old entries,
-              and surface emotional patterns without losing the warmth of the habit.
-            </p>
+            <h1 className="hero-title">{heroCopy.title}</h1>
+            <p className="hero-lead">{heroCopy.lead}</p>
           </div>
         </section>
 
@@ -174,7 +209,13 @@ function App() {
 
         <main className="page-stage">
           {activeTab === 'write' && <JournalEntry onEntrySaved={handleEntrySaved} />}
-          {activeTab === 'dashboard' && <Dashboard entries={entries} loading={entriesLoading} />}
+          {activeTab === 'dashboard' && (
+            <Dashboard
+              entries={entries}
+              loading={entriesLoading}
+              onStartWriting={() => setActiveTab('write')}
+            />
+          )}
           {activeTab === 'entries' && <RecentEntries entries={entries} loading={entriesLoading} />}
         </main>
 

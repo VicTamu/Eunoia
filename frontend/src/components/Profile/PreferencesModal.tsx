@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Bell, Shield, Database, Moon, Sun, Check, Droplets, Leaf, Palette } from 'lucide-react';
+import { X, Bell, Shield, Database, Moon, Check, Droplets, Leaf, Palette } from 'lucide-react';
 import { useTheme, Theme } from '../../contexts/ThemeContext';
 
 interface PreferencesModalProps {
@@ -16,16 +16,9 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ onClose }) => {
     value: Theme;
     label: string;
     description: string;
-    icon: typeof Sun;
+    icon: typeof Moon;
     preview: string;
   }[] = [
-    {
-      value: 'light',
-      label: 'Light',
-      description: 'Clean and bright interface',
-      icon: Sun,
-      preview: 'bg-white border-gray-200',
-    },
     {
       value: 'dark',
       label: 'Dark',

@@ -1,19 +1,28 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
-export type Theme = 'light' | 'dark' | 'blue' | 'green';
+export type Theme = 'dark' | 'blue' | 'green';
 
-const VALID_THEMES: Theme[] = ['light', 'dark', 'blue', 'green'];
+const VALID_THEMES: Theme[] = ['dark', 'blue', 'green'];
+const LEGACY_THEME_MAP: Record<string, Theme> = {
+  light: 'blue',
+  purple: 'blue',
+};
+const THEME_META_COLORS: Record<Theme, string> = {
+  dark: '#1f2937',
+  blue: '#3b82f6',
+  green: '#10b981',
+};
 
 const normalizeTheme = (value: string | null): Theme => {
-  if (value === 'purple') {
-    return 'blue';
+  if (value && value in LEGACY_THEME_MAP) {
+    return LEGACY_THEME_MAP[value];
   }
 
   if (value && VALID_THEMES.includes(value as Theme)) {
     return value as Theme;
   }
 
-  return 'light';
+  return 'blue';
 };
 
 interface ThemeContextType {
@@ -38,8 +47,8 @@ interface ThemeProviderProps {
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const [theme, setTheme] = useState<Theme>(() => {
-    const saved = localStorage.getItem('eunoia-theme');
-    return normalizeTheme(saved);
+    const savedTheme = localStorage.getItem('eunoia-theme');
+    return normalizeTheme(savedTheme);
   });
 
   const isDark = theme === 'dark';
@@ -47,37 +56,35 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('eunoia-theme', theme);
 
-    // Apply theme to document root
     const root = document.documentElement;
-    // Remove any existing theme-* class and add the current one without
-    // disturbing other classes that might be present on <html>.
     const currentThemeClass = `theme-${theme}`;
-    const existingThemeClass = Array.from(root.classList).find((c) => c.startsWith('theme-'));
+    const existingThemeClass = Array.from(root.classList).find((className) =>
+      className.startsWith('theme-'),
+    );
+
     if (existingThemeClass && existingThemeClass !== currentThemeClass) {
       root.classList.remove(existingThemeClass);
     }
+
     if (!root.classList.contains(currentThemeClass)) {
       root.classList.add(currentThemeClass);
     }
 
-    // Update meta theme-color for mobile browsers
     const metaThemeColor = document.querySelector('meta[name="theme-color"]');
     if (metaThemeColor) {
-      const colors = {
-        light: '#ffffff',
-        dark: '#1f2937',
-        blue: '#3b82f6',
-        green: '#10b981',
-      };
-      metaThemeColor.setAttribute('content', colors[theme]);
+      metaThemeColor.setAttribute('content', THEME_META_COLORS[theme]);
     }
   }, [theme]);
 
-  const value = {
-    theme,
-    setTheme,
-    isDark,
-  };
-
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider
+      value={{
+        theme,
+        setTheme,
+        isDark,
+      }}
+    >
+      {children}
+    </ThemeContext.Provider>
+  );
 };

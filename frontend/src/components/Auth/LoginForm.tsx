@@ -1,12 +1,18 @@
 import React, { useState } from 'react';
-import { Mail, Lock } from 'lucide-react';
+import { Lock, Mail } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import AuthTextField from './AuthTextField';
 import { friendlyAuthError } from '../../utils/authErrorMessages';
+import AuthTextField from './AuthTextField';
 
 interface LoginFormProps {
   onToggleMode: () => void;
 }
+
+const PASSWORD_PLACEHOLDER = '********';
+const RESET_LINK_HELP =
+  'Enter your email above, then tap "Forgot password?" so we know where to send the link.';
+const RESET_LINK_NOTICE =
+  'If an account exists for that email, we sent a link to reset your password. Check your inbox and spam folder.';
 
 const LoginForm: React.FC<LoginFormProps> = ({ onToggleMode }) => {
   const [email, setEmail] = useState('');
@@ -40,22 +46,20 @@ const LoginForm: React.FC<LoginFormProps> = ({ onToggleMode }) => {
   const handleForgotPassword = async () => {
     setError('');
     setResetNotice('');
-    const trimmed = email.trim();
-    if (!trimmed) {
-      setError(
-        'Enter your email above, then tap "Forgot password?" so we know where to send the link.',
-      );
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError(RESET_LINK_HELP);
       return;
     }
+
     setResetLoading(true);
     try {
-      const { error: resetError } = await resetPasswordForEmail(trimmed);
+      const { error: resetError } = await resetPasswordForEmail(trimmedEmail);
       if (resetError) {
         setError(friendlyAuthError(resetError));
       } else {
-        setResetNotice(
-          'If an account exists for that email, we sent a link to reset your password. Check your inbox and spam folder.',
-        );
+        setResetNotice(RESET_LINK_NOTICE);
       }
     } finally {
       setResetLoading(false);
@@ -70,6 +74,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onToggleMode }) => {
             {error}
           </div>
         ) : null}
+
         {resetNotice ? (
           <div className="status-banner status-banner-success" role="status" aria-live="polite">
             {resetNotice}
@@ -93,11 +98,11 @@ const LoginForm: React.FC<LoginFormProps> = ({ onToggleMode }) => {
           value={password}
           onChange={setPassword}
           autoComplete="current-password"
-          placeholder="••••••••"
+          placeholder={PASSWORD_PLACEHOLDER}
           leadingIcon={Lock}
           password={{
             visible: showPassword,
-            onToggle: () => setShowPassword((v) => !v),
+            onToggle: () => setShowPassword((visible) => !visible),
             toggleLabels: { show: 'Show password', hide: 'Hide password' },
           }}
         />
@@ -109,12 +114,12 @@ const LoginForm: React.FC<LoginFormProps> = ({ onToggleMode }) => {
             onClick={handleForgotPassword}
             disabled={resetLoading}
           >
-            {resetLoading ? 'Sending link…' : 'Forgot password?'}
+            {resetLoading ? 'Sending link...' : 'Forgot password?'}
           </button>
         </p>
 
         <button type="submit" disabled={loading} className="auth-primary-button">
-          {loading ? 'Signing in…' : 'Sign in'}
+          {loading ? 'Signing in...' : 'Sign in'}
         </button>
       </form>
 

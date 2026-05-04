@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Mail, Lock } from 'lucide-react';
+import { Lock, Mail } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import AuthTextField from './AuthTextField';
 import { friendlyAuthError } from '../../utils/authErrorMessages';
+import AuthTextField from './AuthTextField';
 
 interface SignupFormProps {
   onToggleMode: () => void;
   onRegistered: (email: string) => void;
 }
+
+const MIN_PASSWORD_LENGTH = 6;
 
 const SignupForm: React.FC<SignupFormProps> = ({ onToggleMode, onRegistered }) => {
   const [email, setEmail] = useState('');
@@ -31,8 +33,8 @@ const SignupForm: React.FC<SignupFormProps> = ({ onToggleMode, onRegistered }) =
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long.');
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`);
       setLoading(false);
       return;
     }
@@ -82,14 +84,14 @@ const SignupForm: React.FC<SignupFormProps> = ({ onToggleMode, onRegistered }) =
           value={password}
           onChange={setPassword}
           autoComplete="new-password"
-          placeholder="At least 6 characters"
+          placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
           leadingIcon={Lock}
           password={{
             visible: showPassword,
-            onToggle: () => setShowPassword((v) => !v),
+            onToggle: () => setShowPassword((visible) => !visible),
             toggleLabels: { show: 'Show password', hide: 'Hide password' },
           }}
-          helperText="Use at least 6 characters."
+          helperText={`Use at least ${MIN_PASSWORD_LENGTH} characters.`}
         />
 
         <AuthTextField
@@ -102,13 +104,13 @@ const SignupForm: React.FC<SignupFormProps> = ({ onToggleMode, onRegistered }) =
           leadingIcon={Lock}
           password={{
             visible: showConfirmPassword,
-            onToggle: () => setShowConfirmPassword((v) => !v),
+            onToggle: () => setShowConfirmPassword((visible) => !visible),
             toggleLabels: { show: 'Show confirm password', hide: 'Hide confirm password' },
           }}
         />
 
         <button type="submit" disabled={loading} className="auth-primary-button">
-          {loading ? 'Creating account…' : 'Create account'}
+          {loading ? 'Creating account...' : 'Create account'}
         </button>
       </form>
 
