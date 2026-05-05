@@ -2,6 +2,16 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || '';
+const fallbackSiteUrl = process.env.REACT_APP_SITE_URL?.trim() || 'https://www.myeunoia.online';
+
+const resolveAuthRedirectUrl = (query: string) => {
+  const base =
+    typeof window !== 'undefined' && window.location.origin
+      ? window.location.origin
+      : fallbackSiteUrl;
+
+  return new URL(`/${query}`, base).toString();
+};
 
 if (!supabaseUrl || !supabaseAnonKey) {
   // eslint-disable-next-line no-console
@@ -25,6 +35,9 @@ export const auth = {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: resolveAuthRedirectUrl('?auth_flow=signup'),
+      },
     });
     return { data, error };
   },
@@ -45,14 +58,25 @@ export const auth = {
   },
 
   resetPasswordForEmail: async (email: string) => {
-    const redirectTo = `${window.location.origin}${window.location.pathname || '/'}`;
+    const redirectTo = resolveAuthRedirectUrl('?auth_flow=recovery');
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
     return { error };
   },
 
   resendSignupEmail: async (email: string) => {
-    const { error } = await supabase.auth.resend({ type: 'signup', email });
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: {
+        emailRedirectTo: resolveAuthRedirectUrl('?auth_flow=signup'),
+      },
+    });
     return { error };
+  },
+
+  updatePassword: async (password: string) => {
+    const { data, error } = await supabase.auth.updateUser({ password });
+    return { data, error };
   },
 
   // Get current user

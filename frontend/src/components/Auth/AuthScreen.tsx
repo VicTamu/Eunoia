@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { ArrowLeft, Leaf, Mail, UserPlus } from 'lucide-react';
 import AmbientBackground from '../AmbientBackground';
 import LoginForm from './LoginForm';
+import PasswordRecoveryForm from './PasswordRecoveryForm';
 import SignupForm from './SignupForm';
 import { useAuth } from '../../contexts/AuthContext';
 import { friendlyAuthError } from '../../utils/authErrorMessages';
 
-export type AuthMode = 'login' | 'signup';
+export type AuthMode = 'login' | 'signup' | 'recovery';
 
 export type AuthScreenProps = {
   mode: AuthMode;
@@ -91,6 +92,8 @@ export default function AuthScreen({
   onRegistered,
   onBackToLanding,
 }: AuthScreenProps) {
+  const { clearPasswordRecovery, signOut } = useAuth();
+
   const loginLead = (
     <>
       <span className="auth-story-lead-line">Come back to yourself.</span>
@@ -101,11 +104,33 @@ export default function AuthScreen({
   );
 
   const shellContext =
-    mode === 'login'
-      ? 'Sign in to continue'
-      : signUpEmailSent
-        ? 'Verify your email'
-        : 'Create your account';
+    mode === 'recovery'
+      ? 'Reset your password'
+      : mode === 'login'
+        ? 'Sign in to continue'
+        : signUpEmailSent
+          ? 'Verify your email'
+          : 'Create your account';
+
+  const authTitle =
+    mode === 'recovery'
+      ? 'Choose a new password.'
+      : mode === 'login'
+        ? 'Your space is waiting.'
+        : 'Start your reflection space.';
+
+  const authLead =
+    mode === 'recovery'
+      ? 'This link is ready to finish the reset. Save a new password, then sign back in.'
+      : mode === 'login'
+        ? loginLead
+        : 'Create your account to keep your journal private, steady, and ready when you need it.';
+
+  const handleRecoveryComplete = async () => {
+    clearPasswordRecovery();
+    await signOut();
+    onModeChange('login');
+  };
 
   return (
     <div className="auth-shell">
@@ -125,20 +150,30 @@ export default function AuthScreen({
 
       <section className="auth-story auth-story--compact">
         <div className="auth-story-copy">
-          <h1>{mode === 'login' ? 'Your space is waiting.' : 'Start your reflection space.'}</h1>
-          <p className="auth-story-lead">
-            {mode === 'login'
-              ? loginLead
-              : (
-              'Create your account to keep your journal private, steady, and ready when you need it.'
-            )}
-          </p>
+          <h1>{authTitle}</h1>
+          <p className="auth-story-lead">{authLead}</p>
         </div>
       </section>
 
       <section className="auth-card-shell">
         <div className="auth-card">
-          {mode === 'signup' && signUpEmailSent ? (
+          {mode === 'recovery' ? (
+            <header className="auth-card-header auth-card-header--compact">
+              <div className="auth-mini-brand">
+                <span className="auth-mini-brand-mark">
+                  <Leaf className="h-6 w-6" aria-hidden />
+                </span>
+                <div>
+                  <strong className="auth-card-product-name">Eunoia</strong>
+                  <div className="auth-card-product-tagline muted-copy">Journal</div>
+                </div>
+              </div>
+              <h2 className="auth-card-title">Set your new password</h2>
+              <p className="auth-card-lead">
+                Once it is saved, you will be returned to sign in with the updated password.
+              </p>
+            </header>
+          ) : mode === 'signup' && signUpEmailSent ? (
             <header className="auth-card-header auth-card-header--compact">
               <div className="auth-mini-brand">
                 <span className="auth-mini-brand-mark">
@@ -185,7 +220,9 @@ export default function AuthScreen({
           )}
 
           <div className="auth-card-body">
-            {mode === 'login' ? (
+            {mode === 'recovery' ? (
+              <PasswordRecoveryForm onCompleted={handleRecoveryComplete} />
+            ) : mode === 'login' ? (
               <LoginForm onToggleMode={() => onModeChange('signup')} />
             ) : signUpEmailSent ? (
               <SignupVerificationPanel

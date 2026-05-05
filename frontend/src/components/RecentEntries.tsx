@@ -5,9 +5,16 @@ import { JournalEntry } from '../types';
 interface RecentEntriesProps {
   entries: JournalEntry[];
   loading?: boolean;
+  error?: string | null;
+  onRetry?: () => void | Promise<void>;
 }
 
-const RecentEntries: React.FC<RecentEntriesProps> = ({ entries, loading = false }) => {
+const RecentEntries: React.FC<RecentEntriesProps> = ({
+  entries,
+  loading = false,
+  error = null,
+  onRetry,
+}) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [emotionFilter, setEmotionFilter] = useState('all');
   const [expandedEntries, setExpandedEntries] = useState<number[]>([]);
@@ -111,6 +118,21 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ entries, loading = false 
   }
 
   if (entries.length === 0) {
+    if (error) {
+      return (
+        <div className="soft-empty">
+          <BookOpen className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+          <h3 className="text-lg font-semibold">We couldn&apos;t load your entries yet</h3>
+          <p>{error}</p>
+          {onRetry ? (
+            <button type="button" className="dashboard-nudge-button mt-4" onClick={onRetry}>
+              Try again
+            </button>
+          ) : null}
+        </div>
+      );
+    }
+
     return (
       <div className="soft-empty">
         <BookOpen className="h-12 w-12 mx-auto mb-4 text-gray-400" />
@@ -122,6 +144,17 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({ entries, loading = false 
 
   return (
     <div className="panel-card entries-card">
+      {error ? (
+        <div className="status-banner status-banner-error mb-4" role="alert">
+          {error}
+          {onRetry ? (
+            <button type="button" className="auth-inline-link" onClick={onRetry}>
+              Try again
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="section-heading">
         <div>
           <div className="eyebrow">

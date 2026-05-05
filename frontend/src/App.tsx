@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { BookOpen, BarChart3, Home, ShieldCheck } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { BarChart3, BookOpen, Home, ShieldCheck } from 'lucide-react';
 import JournalEntry from './components/JournalEntry';
 import Dashboard from './components/Dashboard';
 import RecentEntries from './components/RecentEntries';
@@ -13,14 +13,15 @@ import { journalApi } from './services/api';
 import './App.css';
 
 type TabType = 'write' | 'dashboard' | 'entries';
-type AuthMode = 'login' | 'signup';
+type AuthMode = 'login' | 'signup' | 'recovery';
 type GuestView = 'landing' | 'auth';
 
 function App() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, signOut, isPasswordRecovery } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('write');
   const [entries, setEntries] = useState<JournalEntryType[]>([]);
   const [entriesLoading, setEntriesLoading] = useState(false);
+  const [entriesError, setEntriesError] = useState<string | null>(null);
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [guestView, setGuestView] = useState<GuestView>('landing');
   const [signUpEmailSent, setSignUpEmailSent] = useState(false);
@@ -33,38 +34,27 @@ function App() {
     }
   }, [authMode]);
 
+  const loadEntries = useCallback(async () => {
+    try {
+      setEntriesLoading(true);
+      setEntriesError(null);
+      const allEntries = await journalApi.getAllEntries();
+      setEntries(allEntries);
+    } catch (error) {
+      console.error('Error loading entries:', error);
+      setEntriesError("We couldn't load your saved entries right now. Try again in a moment.");
+    } finally {
+      setEntriesLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    if (!user || loading) {
+    if (!user || loading || isPasswordRecovery) {
       return;
     }
 
-    let isMounted = true;
-
-    const loadEntries = async () => {
-      try {
-        setEntriesLoading(true);
-        const allEntries = await journalApi.getAllEntries();
-        if (isMounted) {
-          setEntries(allEntries);
-        }
-      } catch (error) {
-        console.error('Error loading entries:', error);
-        if (isMounted) {
-          setEntries([]);
-        }
-      } finally {
-        if (isMounted) {
-          setEntriesLoading(false);
-        }
-      }
-    };
-
-    loadEntries();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user, loading]);
+    void loadEntries();
+  }, [user, loading, isPasswordRecovery, loadEntries]);
 
   const handleEntrySaved = (newEntry: JournalEntryType) => {
     setEntries((prev) => [newEntry, ...prev.filter((entry) => entry.id !== newEntry.id)]);
@@ -75,6 +65,7 @@ function App() {
       await signOut();
       setEntries([]);
       setEntriesLoading(false);
+      setEntriesError(null);
       setGuestView('landing');
     } catch (error) {
       console.error('Error signing out:', error);
@@ -131,9 +122,22 @@ function App() {
         <AmbientBackground />
         <div className="guest-loading-card">
           <div className="guest-loading-spinner" aria-hidden />
-          <p className="guest-loading-text">Loading your reflection space…</p>
+          <p className="guest-loading-text">Loading your reflection space...</p>
         </div>
       </div>
+    );
+  }
+
+  if (isPasswordRecovery) {
+    return (
+      <AuthScreen
+        mode="recovery"
+        onModeChange={setAuthMode}
+        signUpEmailSent={false}
+        pendingSignupEmail=""
+        onRegistered={() => undefined}
+        onBackToLanding={() => setGuestView('landing')}
+      />
     );
   }
 
@@ -213,10 +217,19 @@ function App() {
             <Dashboard
               entries={entries}
               loading={entriesLoading}
+              error={entriesError}
+              onRetry={loadEntries}
               onStartWriting={() => setActiveTab('write')}
             />
           )}
-          {activeTab === 'entries' && <RecentEntries entries={entries} loading={entriesLoading} />}
+          {activeTab === 'entries' && (
+            <RecentEntries
+              entries={entries}
+              loading={entriesLoading}
+              error={entriesError}
+              onRetry={loadEntries}
+            />
+          )}
         </main>
 
         <footer className="footer-card">

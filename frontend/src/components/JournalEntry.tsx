@@ -8,8 +8,16 @@ interface JournalEntryProps {
 }
 
 const JournalEntry: React.FC<JournalEntryProps> = ({ onEntrySaved }) => {
+  const getLocalDateKey = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = `${now.getMonth() + 1}`.padStart(2, '0');
+    const day = `${now.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const [content, setContent] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getLocalDateKey());
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [showDateEditor, setShowDateEditor] = useState(false);
@@ -125,7 +133,9 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ onEntrySaved }) => {
               </button>
             </div>
           </div>
-          <p className="journal-guidance">Start where you are, a few honest sentences are enough.</p>
+          <p className="journal-guidance">
+            Start where you are, a few honest sentences are enough.
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -137,7 +147,7 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ onEntrySaved }) => {
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
                 className="field-input"
-                max={new Date().toISOString().split('T')[0]}
+                max={getLocalDateKey()}
               />
             </div>
           ) : null}

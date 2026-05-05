@@ -1,22 +1,24 @@
 import React, { useMemo } from 'react';
 import {
-  BarChart,
+  Area,
+  AreaChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  Line,
 } from 'recharts';
-import { TrendingUp, Brain, Heart, Calendar, AlertCircle, PenSquare, Sparkles } from 'lucide-react';
+import { AlertCircle, Brain, Calendar, Heart, PenSquare, Sparkles, TrendingUp } from 'lucide-react';
 import { Insight, JournalEntry as JournalEntryType, SentimentTrend } from '../types';
 
 interface DashboardProps {
   entries: JournalEntryType[];
   loading?: boolean;
+  error?: string | null;
+  onRetry?: () => void | Promise<void>;
   onStartWriting?: () => void;
 }
 
@@ -25,9 +27,21 @@ type InsightSummary = Insight & {
   timeframe_label: string;
 };
 
+const toLocalDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const getDateKey = (entry: JournalEntryType) => {
   const rawDate = entry.date || entry.created_at || entry.updated_at;
-  return rawDate?.split('T')[0] || new Date().toISOString().split('T')[0];
+  if (!rawDate) {
+    return toLocalDateKey(new Date());
+  }
+
+  const parsedDate = new Date(rawDate);
+  return Number.isNaN(parsedDate.getTime()) ? rawDate.split('T')[0] : toLocalDateKey(parsedDate);
 };
 
 const getVisibleEmotion = (entry: JournalEntryType) =>
@@ -77,7 +91,13 @@ const getStressInterpretation = (value: number) => {
   return 'Things have felt comparatively lighter than your heavier stretches.';
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ entries, loading = false, onStartWriting }) => {
+const Dashboard: React.FC<DashboardProps> = ({
+  entries,
+  loading = false,
+  error = null,
+  onRetry,
+  onStartWriting,
+}) => {
   const trends = useMemo<SentimentTrend[]>(() => {
     const dailyData = new Map<
       string,
@@ -166,7 +186,7 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, loading = false, onStart
       );
     } else {
       insightLines.push(
-        `Your entries are more occasional right now, so each new reflection will sharpen the pattern tracking.`,
+        'Your entries are more occasional right now, so each new reflection will sharpen the pattern tracking.',
       );
     }
 
@@ -216,18 +236,12 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, loading = false, onStart
     });
 
   const hasWrittenToday = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = toLocalDateKey(new Date());
     return entries.some((entry) => getDateKey(entry) === today);
   }, [entries]);
 
-  const averageMoodValue =
-    trends.length > 0
-      ? trends.reduce((sum, trend) => sum + trend.avg_sentiment, 0) / trends.length
-      : 0;
-  const averageStressValue =
-    trends.length > 0
-      ? trends.reduce((sum, trend) => sum + trend.avg_stress, 0) / trends.length
-      : 0;
+  const averageMoodValue = insights?.avg_sentiment ?? 0;
+  const averageStressValue = insights?.avg_stress ?? 0;
   const averageMood = averageMoodValue.toFixed(1);
   const averageStress = averageStressValue.toFixed(1);
 
@@ -245,6 +259,21 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, loading = false, onStart
   }
 
   if (trends.length === 0 || !insights) {
+    if (error) {
+      return (
+        <div className="soft-empty">
+          <AlertCircle className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+          <h3 className="text-lg font-semibold">We couldn&apos;t load your dashboard yet</h3>
+          <p>{error}</p>
+          {onRetry ? (
+            <button type="button" className="dashboard-nudge-button mt-4" onClick={onRetry}>
+              Try again
+            </button>
+          ) : null}
+        </div>
+      );
+    }
+
     return (
       <div className="soft-empty">
         <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400" />
@@ -256,6 +285,17 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, loading = false, onStart
 
   return (
     <div className="space-y-6">
+      {error ? (
+        <div className="status-banner status-banner-error" role="alert">
+          {error}
+          {onRetry ? (
+            <button type="button" className="auth-inline-link" onClick={onRetry}>
+              Try again
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="panel-card dashboard-nudge-card">
         <div className="dashboard-nudge-copy">
           <div className="eyebrow">
