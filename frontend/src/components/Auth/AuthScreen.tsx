@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Leaf, Mail, UserPlus } from 'lucide-react';
+import { ArrowLeft, Leaf, Mail, TrendingUp, UserPlus } from 'lucide-react';
 import AmbientBackground from '../AmbientBackground';
 import LoginForm from './LoginForm';
 import PasswordRecoveryForm from './PasswordRecoveryForm';
@@ -17,6 +17,21 @@ export type AuthScreenProps = {
   onRegistered: (email: string) => void;
   onBackToLanding: () => void;
 };
+
+const loginNoticingPoints = [
+  {
+    title: 'Emotional rhythms',
+    copy: 'See when gratitude, steadiness, nervousness, or heaviness tend to return.',
+  },
+  {
+    title: 'Stress clusters',
+    copy: 'Notice the days that ask more of you before they blur together.',
+  },
+  {
+    title: 'What helps',
+    copy: 'Return to the entries where you sounded more grounded than you felt.',
+  },
+];
 
 function SignupVerificationPanel({
   email,
@@ -155,7 +170,22 @@ export default function AuthScreen({
         </div>
       </section>
 
-      <section className="auth-card-shell">
+      <section className={`auth-card-shell ${mode === 'login' ? 'auth-card-shell-login' : ''}`}>
+        {mode === 'login' ? (
+          <aside
+            className="auth-side-panel auth-side-panel-left"
+            aria-label="What you start noticing"
+          >
+            <div className="auth-side-card">
+              <h2 className="auth-side-title">Gain a clearer sense of your rhythm.</h2>
+              <p className="auth-side-copy">
+                Over time, your journal becomes easier to return to because it starts holding more
+                than memory. It starts holding patterns.
+              </p>
+            </div>
+          </aside>
+        ) : null}
+
         <div className="auth-card">
           {mode === 'recovery' ? (
             <header className="auth-card-header auth-card-header--compact">
@@ -234,6 +264,28 @@ export default function AuthScreen({
             )}
           </div>
         </div>
+
+        {mode === 'login' ? (
+          <aside
+            className="auth-side-panel auth-side-panel-right"
+            aria-label="What you start noticing"
+          >
+            <div className="auth-side-card">
+              <div className="auth-side-kicker">
+                <TrendingUp className="h-4 w-4" aria-hidden />
+                What you start noticing
+              </div>
+              <div className="auth-side-point-list">
+                {loginNoticingPoints.map((item) => (
+                  <article key={item.title} className="auth-side-point">
+                    <h3>{item.title}</h3>
+                    <p>{item.copy}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </aside>
+        ) : null}
       </section>
 
       <footer className="auth-shell-footer">
