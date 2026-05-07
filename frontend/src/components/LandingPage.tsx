@@ -34,9 +34,27 @@ const faqItems = [
   },
 ];
 
+const processSteps = [
+  {
+    step: '01',
+    title: 'Write what stayed with you',
+    copy: 'Start with the day as it felt, even if all you have is a few honest sentences.',
+  },
+  {
+    step: '02',
+    title: 'Notice the shape of it',
+    copy: 'Eunoia helps surface mood, stress, and emotional patterns without interrupting the writing itself.',
+  },
+  {
+    step: '03',
+    title: 'Return with more context',
+    copy: 'Revisit earlier entries and see what your days have been quietly repeating back to you.',
+  },
+];
+
 export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
   const [promptValue, setPromptValue] = useState('');
-  const [hasTriedPrompt, setHasTriedPrompt] = useState(false);
+  const [activePromptDemo, setActivePromptDemo] = useState<string | null>(null);
 
   const promptNudge = useMemo(() => {
     if (!promptValue.trim()) {
@@ -75,9 +93,49 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const handlePromptSubmit = () => {
-    setHasTriedPrompt(true);
-  };
+  const renderPromptCard = (idSuffix: string, compact = false) => (
+    <div className={`landing-prompt-card ${compact ? 'landing-prompt-card-compact' : ''}`}>
+      <label className="sr-only" htmlFor={`landing-try-prompt-${idSuffix}`}>
+        What has stayed with you today?
+      </label>
+      <textarea
+        id={`landing-try-prompt-${idSuffix}`}
+        className="landing-prompt-textarea"
+        value={promptValue}
+        onChange={(event) => setPromptValue(event.target.value)}
+        onFocus={() => setActivePromptDemo(null)}
+        onKeyDown={(event) => {
+          if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+            event.preventDefault();
+            setActivePromptDemo(idSuffix);
+          }
+        }}
+        placeholder="Write a word, a sentence, or the first thing that keeps returning."
+        rows={compact ? 3 : 5}
+      />
+      <div className="landing-prompt-actions">
+        <button
+          type="button"
+          className="landing-cta-primary"
+          onClick={() => setActivePromptDemo(idSuffix)}
+        >
+          Keep this safely
+        </button>
+        <p className="landing-prompt-hint">Press save or just pause here for a moment.</p>
+      </div>
+      {activePromptDemo === idSuffix ? (
+        <button
+          type="button"
+          className="landing-prompt-nudge"
+          onClick={onSignUp}
+          aria-live="polite"
+        >
+          <span>{promptNudge}</span>
+          <ArrowDown className="h-4 w-4" strokeWidth={2} aria-hidden />
+        </button>
+      ) : null}
+    </div>
+  );
 
   return (
     <div className="landing-shell" aria-label="Eunoia welcome">
@@ -221,9 +279,7 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
             aria-label="Eunoia brand statement"
             data-reveal
           >
-            <p className="landing-statement-text">
-              Most apps ask you to perform. Eunoia just asks you to notice.
-            </p>
+            <p className="landing-statement-text">Eunoia just asks you to notice.</p>
           </section>
 
           <section
@@ -232,147 +288,78 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
             aria-label="How Eunoia works"
             data-reveal
           >
-            <div className="landing-process-layout">
-              <div className="landing-section-intro landing-process-intro">
-                <div className="eyebrow">
-                  <Sparkles className="h-4 w-4" aria-hidden />
-                  How it works
-                </div>
-                <h2 className="landing-section-title landing-section-title-supporting">
-                  A simple rhythm you can actually return to.
-                </h2>
-                <p className="landing-section-lede">
-                  The goal is not to optimize your inner life. It&apos;s to make reflection feel a
-                  little easier to begin, notice, and revisit.
-                </p>
+            <div className="landing-section-intro landing-process-intro">
+              <div className="eyebrow">
+                <Sparkles className="h-4 w-4" aria-hidden />
+                How it works
               </div>
+            </div>
 
-              <div className="landing-process-rail">
-                <article className="landing-process-card">
-                  <span className="landing-process-step">01</span>
-                  <div className="landing-process-copy">
-                    <h3>Write what stayed with you</h3>
-                    <p>
-                      Start with the day as it felt, even if all you have is a few honest sentences.
-                    </p>
+            <div className="landing-option-stack">
+              <article className="landing-option-card">
+                <div className="landing-option-header">
+                  <h3>A simple rhythm you can actually return to.</h3>
+                </div>
+                <div className="landing-option-body landing-option-body-timeline">
+                  <div className="landing-timeline-node">
+                    <div className="landing-process-copy">
+                      <h3>Write what stayed with you</h3>
+                      <p>{processSteps[0].copy}</p>
+                    </div>
                   </div>
-                </article>
-                <article className="landing-process-card">
-                  <span className="landing-process-step">02</span>
-                  <div className="landing-process-copy">
-                    <h3>Notice the shape of it</h3>
-                    <p>
-                      Eunoia helps surface mood, stress, and emotional patterns without interrupting
-                      the writing itself.
-                    </p>
+                  <div className="landing-timeline-node">
+                    <div className="landing-process-copy">
+                      <h3>Notice the shape of it</h3>
+                      <p>{processSteps[1].copy}</p>
+                    </div>
                   </div>
-                </article>
-                <article className="landing-process-card">
-                  <span className="landing-process-step">03</span>
-                  <div className="landing-process-copy">
-                    <h3>Return with more context</h3>
-                    <p>
-                      Revisit earlier entries and see what your days have been quietly repeating
-                      back to you.
-                    </p>
+                  <div className="landing-timeline-node">
+                    <div className="landing-process-copy">
+                      <h3>Return with more context</h3>
+                      <p>{processSteps[2].copy}</p>
+                    </div>
                   </div>
-                </article>
-              </div>
+                  <div className="landing-timeline-node landing-timeline-node-prompt">
+                    <div className="landing-process-copy">
+                      <h3>Try one sentence now</h3>
+                      <p>
+                        You do not need to know the whole shape of the day. Start with what stayed.
+                      </p>
+                      {renderPromptCard('option-3', true)}
+                    </div>
+                  </div>
+                </div>
+              </article>
             </div>
           </section>
 
           <section
-            className="landing-detail-section landing-band landing-band-try"
-            aria-label="Try a reflection prompt"
-            data-reveal
-          >
-            <div className="landing-prompt-layout">
-              <div className="landing-prompt-panel">
-                <div className="eyebrow">
-                  <Sparkles className="h-4 w-4" aria-hidden />
-                  Try a prompt
-                </div>
-                <h2 className="landing-section-title landing-section-title-supporting">
-                  Try one honest sentence before you decide.
-                </h2>
-                <p className="landing-section-lede">
-                  You do not need to know the whole shape of the day. Start with what stayed.
-                </p>
-              </div>
-
-              <div className="landing-prompt-card">
-                <label className="landing-prompt-label" htmlFor="landing-try-prompt">
-                  What has stayed with you today?
-                </label>
-                <textarea
-                  id="landing-try-prompt"
-                  className="landing-prompt-textarea"
-                  value={promptValue}
-                  onChange={(event) => setPromptValue(event.target.value)}
-                  onFocus={() => setHasTriedPrompt(false)}
-                  onKeyDown={(event) => {
-                    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-                      event.preventDefault();
-                      handlePromptSubmit();
-                    }
-                  }}
-                  placeholder="Write a word, a sentence, or the first thing that keeps returning."
-                  rows={5}
-                />
-                <div className="landing-prompt-actions">
-                  <button
-                    type="button"
-                    className="landing-cta-primary"
-                    onClick={handlePromptSubmit}
-                  >
-                    Keep this safely
-                  </button>
-                  <p className="landing-prompt-hint">Press save or just pause here for a moment.</p>
-                </div>
-                {hasTriedPrompt ? (
-                  <button
-                    type="button"
-                    className="landing-prompt-nudge"
-                    onClick={onSignUp}
-                    aria-live="polite"
-                  >
-                    <span>{promptNudge}</span>
-                    <ArrowDown className="h-4 w-4" strokeWidth={2} aria-hidden />
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          </section>
-
-          <section
-            className="landing-detail-section landing-band landing-band-soft landing-detail-section-reversed"
-            aria-label="Privacy and questions"
+            className="landing-detail-section landing-band landing-band-soft"
+            aria-label="Frequently asked questions"
             data-reveal
           >
             <div className="landing-support-band">
-              <div className="landing-support-grid">
-                <div className="landing-faq-stack landing-faq-stack-leading">
-                  {faqItems.map((item) => (
-                    <article key={item.question} className="landing-faq-card">
-                      <h3>{item.question}</h3>
-                      <p>{item.answer}</p>
-                    </article>
-                  ))}
+              <div className="landing-section-intro landing-faq-intro">
+                <div className="eyebrow">
+                  <Lock className="h-4 w-4" aria-hidden />
+                  FAQs
                 </div>
+                <h2 className="landing-section-title landing-section-title-supporting">
+                  A journal space, not a performance space.
+                </h2>
+                <p className="landing-section-lede">
+                  No public feed. No audience to manage. Just your entries, your patterns, and a
+                  quieter way to come back to yourself.
+                </p>
+              </div>
 
-                <article className="landing-support-copy landing-support-copy-right">
-                  <div className="eyebrow">
-                    <Lock className="h-4 w-4" aria-hidden />
-                    Private by design
-                  </div>
-                  <h2 className="landing-section-title landing-section-title-supporting">
-                    A journal space, not a performance space.
-                  </h2>
-                  <p className="landing-section-lede">
-                    No public feed. No audience to manage. Just your entries, your patterns, and a
-                    quieter way to come back to yourself.
-                  </p>
-                </article>
+              <div className="landing-faq-stack landing-faq-stack-leading">
+                {faqItems.map((item) => (
+                  <article key={item.question} className="landing-faq-card">
+                    <h3>{item.question}</h3>
+                    <p>{item.answer}</p>
+                  </article>
+                ))}
               </div>
             </div>
           </section>
