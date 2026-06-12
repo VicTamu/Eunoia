@@ -114,8 +114,11 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut }) => {
             <div className="profile-panel-footer">
               <button onClick={handleSignOut} className="profile-signout">
                 <LogOut className="h-4 w-4" />
-                Sign out
+                Sign out of this device
               </button>
+              <p className="profile-signout-note">
+                On a shared computer, signing out here closes your session from this browser.
+              </p>
             </div>
           </div>
         )}

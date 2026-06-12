@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { BookOpen, Brain, Heart, Search, Sparkles } from 'lucide-react';
+import { BookOpen, Brain, Download, Heart, Search, Sparkles } from 'lucide-react';
 import { JournalEntry } from '../types';
 
 interface RecentEntriesProps {
@@ -7,13 +7,22 @@ interface RecentEntriesProps {
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void | Promise<void>;
+  onStartWriting?: () => void;
 }
+
+const getLocalDateKey = (value = new Date()) => {
+  const year = value.getFullYear();
+  const month = `${value.getMonth() + 1}`.padStart(2, '0');
+  const day = `${value.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const RecentEntries: React.FC<RecentEntriesProps> = ({
   entries,
   loading = false,
   error = null,
   onRetry,
+  onStartWriting,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [emotionFilter, setEmotionFilter] = useState('all');
@@ -98,6 +107,42 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({
     });
   }, [entries, emotionFilter, searchQuery]);
 
+  const handleExport = () => {
+    if (typeof window === 'undefined' || entries.length === 0) {
+      return;
+    }
+
+    const exportLines = entries.map((entry, index) => {
+      const mood =
+        entry.sentiment_score !== null ? `${entry.sentiment_score.toFixed(1)}/10` : 'N/A';
+      const stress = entry.stress_level !== null ? `${entry.stress_level.toFixed(1)}/10` : 'N/A';
+
+      return [
+        `Entry ${entries.length - index}`,
+        `Date: ${formatDate(entry.date)}`,
+        `Emotion: ${getVisibleEmotion(entry)}`,
+        `Mood: ${mood}`,
+        `Stress: ${stress}`,
+        '',
+        entry.content.trim(),
+        '',
+        '---',
+        '',
+      ].join('\n');
+    });
+
+    const blob = new Blob([exportLines.join('\n')], {
+      type: 'text/plain;charset=utf-8',
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `eunoia-journal-${getLocalDateKey()}.txt`;
+    anchor.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   const toggleExpanded = (entryId: number) => {
     setExpandedEntries((current) =>
       current.includes(entryId) ? current.filter((id) => id !== entryId) : [...current, entryId],
@@ -107,11 +152,51 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({
   if (loading) {
     return (
       <div className="panel-card entries-card">
-        <div className="flex items-center justify-center h-32">
-          <div
-            className="animate-spin rounded-full h-6 w-6 border-b-2"
-            style={{ borderColor: 'transparent', borderBottomColor: 'var(--icon-accent)' }}
-          ></div>
+        <div className="section-heading" aria-hidden>
+          <div>
+            <span className="ui-skeleton ui-skeleton-pill" />
+            <div className="mt-4">
+              <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-lg" />
+            </div>
+            <div className="mt-2">
+              <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-md" />
+            </div>
+          </div>
+        </div>
+
+        <div className="entries-filter-row" aria-hidden>
+          <span className="ui-skeleton ui-skeleton-input" />
+          <span className="ui-skeleton ui-skeleton-select" />
+        </div>
+
+        <div className="entries-list" aria-hidden>
+          {[0, 1, 2].map((index) => (
+            <article key={index} className="entry-card dashboard-skeleton-card">
+              <div className="entry-header">
+                <div className="entry-header-main">
+                  <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-xs" />
+                  <div className="entry-emotion-hero">
+                    <span className="ui-skeleton ui-skeleton-chip" />
+                    <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-sm" />
+                  </div>
+                </div>
+                <div className="entry-badges">
+                  <span className="ui-skeleton ui-skeleton-chip" />
+                  <span className="ui-skeleton ui-skeleton-chip" />
+                </div>
+              </div>
+              <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-lg" />
+              <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-md" />
+              <div className="entry-footer">
+                <div className="entry-score-stack">
+                  <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-sm" />
+                  <div className="ui-skeleton ui-skeleton-bar" />
+                  <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-sm" />
+                  <div className="ui-skeleton ui-skeleton-bar" />
+                </div>
+              </div>
+            </article>
+          ))}
         </div>
       </div>
     );
@@ -136,8 +221,18 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({
     return (
       <div className="soft-empty">
         <BookOpen className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-        <h3 className="text-lg font-semibold">No entries yet</h3>
-        <p>Start writing your first journal entry and it will appear here.</p>
+        <h3 className="text-lg font-semibold">Your timeline begins with one honest entry</h3>
+        <p>
+          Your first reflection will start the story here, giving the rest of the app something real
+          to build from.
+        </p>
+        {onStartWriting ? (
+          <div className="soft-empty-actions">
+            <button type="button" className="dashboard-nudge-button" onClick={onStartWriting}>
+              Write your first entry
+            </button>
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -167,6 +262,19 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({
             timeline and dashboard stay in sync.
           </p>
         </div>
+      </div>
+
+      <div className="entries-utility-row">
+        <p className="entries-utility-copy">Your journal stays yours, including outside the app.</p>
+        <button
+          type="button"
+          className="entries-export-button"
+          onClick={handleExport}
+          disabled={entries.length === 0}
+        >
+          <Download className="h-4 w-4" />
+          Download as text
+        </button>
       </div>
 
       <div className="entries-filter-row">

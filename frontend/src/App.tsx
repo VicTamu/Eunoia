@@ -212,24 +212,29 @@ function App() {
         </div>
 
         <main className="page-stage">
-          {activeTab === 'write' && <JournalEntry onEntrySaved={handleEntrySaved} />}
-          {activeTab === 'dashboard' && (
-            <Dashboard
-              entries={entries}
-              loading={entriesLoading}
-              error={entriesError}
-              onRetry={loadEntries}
-              onStartWriting={() => setActiveTab('write')}
-            />
-          )}
-          {activeTab === 'entries' && (
-            <RecentEntries
-              entries={entries}
-              loading={entriesLoading}
-              error={entriesError}
-              onRetry={loadEntries}
-            />
-          )}
+          <div key={activeTab} className="page-stage-panel">
+            {activeTab === 'write' && (
+              <JournalEntry entries={entries} onEntrySaved={handleEntrySaved} />
+            )}
+            {activeTab === 'dashboard' && (
+              <Dashboard
+                entries={entries}
+                loading={entriesLoading}
+                error={entriesError}
+                onRetry={loadEntries}
+                onStartWriting={() => setActiveTab('write')}
+              />
+            )}
+            {activeTab === 'entries' && (
+              <RecentEntries
+                entries={entries}
+                loading={entriesLoading}
+                error={entriesError}
+                onRetry={loadEntries}
+                onStartWriting={() => setActiveTab('write')}
+              />
+            )}
+          </div>
         </main>
 
         <footer className="footer-card">

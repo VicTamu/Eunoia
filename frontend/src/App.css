@@ -413,6 +413,14 @@
   cursor: pointer;
 }
 
+.profile-signout-note {
+  margin: 10px 4px 0;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .preferences-overlay {
   position: fixed;
   inset: 0;
@@ -683,6 +691,12 @@
   display: grid;
   gap: 32px;
   animation: page-fade 0.36s ease-out both;
+}
+
+.page-stage-panel {
+  display: grid;
+  gap: 32px;
+  animation: page-stage-shift 0.2s ease-out both;
 }
 
 .panel-card {
@@ -994,23 +1008,6 @@
 
 .landing-hero-copy {
   text-align: left;
-}
-
-.landing-mobile-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 38px;
-  padding: 8px 13px;
-  border: 1px solid var(--toolbar-border);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface-card) 82%, transparent);
-  color: var(--heading-strong);
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  box-shadow: 0 10px 24px var(--toolbar-shadow);
 }
 
 .landing-headline {
@@ -1607,6 +1604,10 @@
   gap: 32px;
 }
 
+.landing-detail-section-compact {
+  gap: 20px;
+}
+
 .landing-process-grid,
 .landing-support-grid,
 .landing-noticing-list {
@@ -1622,6 +1623,10 @@
   display: grid;
   gap: 28px;
   margin-top: clamp(34px, 5vw, 50px);
+}
+
+.landing-detail-section-compact .landing-option-stack {
+  margin-top: clamp(18px, 2.8vw, 24px);
 }
 
 .landing-option-card {
@@ -1640,10 +1645,48 @@
   box-shadow: 0 18px 36px rgba(15, 23, 42, 0.06);
 }
 
+.landing-option-card-accent {
+  position: relative;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--action-gradient-start) 26%, rgba(255, 255, 255, 0.42));
+  background:
+    linear-gradient(135deg, var(--action-gradient-start) 0%, var(--action-gradient-end) 100%),
+    radial-gradient(circle at 14% 16%, color-mix(in srgb, white 22%, transparent), transparent 34%),
+    radial-gradient(circle at 88% 84%, color-mix(in srgb, white 14%, transparent), transparent 36%);
+  box-shadow:
+    0 24px 42px color-mix(in srgb, var(--action-shadow) 65%, rgba(15, 23, 42, 0.1)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.landing-option-card-accent::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 24%),
+    linear-gradient(0deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.08));
+  pointer-events: none;
+}
+
+.landing-option-card-accent > * {
+  position: relative;
+  z-index: 1;
+}
+
 .landing-option-header {
   display: grid;
   gap: 0;
   max-width: 36rem;
+}
+
+.landing-option-card-accent .landing-option-header {
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.landing-option-card-accent .landing-option-header h3 {
+  max-width: 28rem;
+  color: #f8fafc;
 }
 
 .landing-option-header h3 {
@@ -1677,6 +1720,10 @@
   background: color-mix(in srgb, var(--accent-color) 12%, rgba(189, 171, 151, 0.24));
 }
 
+.landing-option-card-accent .landing-option-body-timeline::before {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.12));
+}
+
 .landing-timeline-node {
   position: relative;
   display: grid;
@@ -1694,10 +1741,51 @@
   height: 26px;
   border-radius: 999px;
   background:
-    radial-gradient(circle at center, color-mix(in srgb, var(--accent-color) 44%, white 16%) 0 5px, transparent 6px),
+    radial-gradient(
+      circle at center,
+      color-mix(in srgb, var(--accent-color) 44%, white 16%) 0 5px,
+      transparent 6px
+    ),
     color-mix(in srgb, var(--surface-card) 78%, white 16%);
   border: 1px solid color-mix(in srgb, var(--accent-color) 16%, rgba(189, 171, 151, 0.22));
   box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05);
+}
+
+.landing-option-card-accent .landing-timeline-node::before {
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.96) 0 5px, transparent 6px),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, white 26%, var(--action-gradient-start)),
+      color-mix(in srgb, white 20%, var(--action-gradient-end))
+    );
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.14);
+}
+
+.landing-option-card-accent .landing-process-copy h3 {
+  color: #f8fafc;
+}
+
+.landing-option-card-accent .landing-process-copy p {
+  color: rgba(248, 250, 252, 0.86);
+}
+
+.landing-option-card-accent .landing-prompt-card .landing-cta-primary {
+  background: linear-gradient(135deg, #fff8f1 0%, #f3e7db 100%);
+  color: color-mix(in srgb, var(--action-gradient-start) 74%, var(--heading-strong) 26%);
+  box-shadow:
+    0 16px 28px color-mix(in srgb, var(--action-shadow) 42%, rgba(15, 23, 42, 0.08)),
+    0 0 0 1px rgba(255, 248, 241, 0.72),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.landing-option-card-accent .landing-prompt-card .landing-cta-primary:hover {
+  color: color-mix(in srgb, var(--action-gradient-start) 82%, var(--heading-strong) 18%);
+  box-shadow:
+    0 20px 32px color-mix(in srgb, var(--action-shadow) 48%, rgba(15, 23, 42, 0.1)),
+    0 0 0 1px rgba(255, 248, 241, 0.84),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
 .landing-timeline-node:last-child {
@@ -1917,6 +2005,61 @@
 .landing-faq-card {
   padding: 0 0 18px;
   border-bottom: 1px solid color-mix(in srgb, var(--accent-color) 12%, rgba(189, 171, 151, 0.24));
+}
+
+.landing-faq-card {
+  display: grid;
+  gap: 0;
+}
+
+.landing-faq-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--heading-strong);
+  text-align: left;
+  cursor: pointer;
+}
+
+.landing-faq-toggle span {
+  font-size: 1.18rem;
+  letter-spacing: -0.03em;
+  line-height: 1.35;
+}
+
+.landing-faq-icon {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  transition: transform 0.2s ease-in-out;
+}
+
+.landing-faq-icon-open {
+  transform: rotate(180deg);
+}
+
+.landing-faq-answer {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.2s ease-in-out;
+}
+
+.landing-faq-answer-open {
+  grid-template-rows: 1fr;
+}
+
+.landing-faq-answer p {
+  overflow: hidden;
+  padding-top: 0;
+  transition: padding-top 0.2s ease-in-out;
+}
+
+.landing-faq-answer-open p {
+  padding-top: 12px;
 }
 
 .landing-process-card p,
@@ -2830,6 +2973,13 @@
   color: var(--heading-strong);
 }
 
+.journal-draft-note {
+  margin-top: 10px;
+  color: color-mix(in srgb, var(--text-secondary) 92%, white 8%);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
 .journal-prompt-helper {
   margin-top: -2px;
 }
@@ -2839,6 +2989,65 @@
   color: var(--text-secondary);
   font-size: 0.95rem;
   line-height: 1.65;
+}
+
+.journal-context-card {
+  margin-bottom: 18px;
+  padding: 18px 20px;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--surface-card-border) 84%, white 12%);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--surface-card) 90%, white 8%),
+      color-mix(in srgb, var(--surface-card) 84%, transparent)
+    ),
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.74), transparent 42%);
+  box-shadow: 0 14px 26px rgba(15, 23, 42, 0.05);
+}
+
+.journal-context-card-soft {
+  background:
+    linear-gradient(180deg, var(--note-surface-start), var(--note-surface-end)),
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.65), transparent 40%);
+  border-color: color-mix(in srgb, var(--note-border) 86%, white 10%);
+}
+
+.journal-context-card-memory {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--insight-surface-start) 92%, white 8%),
+      color-mix(in srgb, var(--insight-surface-end) 92%, transparent)
+    ),
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.7), transparent 42%);
+}
+
+.journal-context-eyebrow {
+  margin-bottom: 12px;
+}
+
+.journal-context-title {
+  margin: 0;
+  font-family: var(--editorial-serif);
+  font-size: 1.28rem;
+  line-height: 1.18;
+  letter-spacing: -0.03em;
+  color: var(--heading-strong);
+}
+
+.journal-context-copy {
+  margin: 10px 0 0;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.journal-memory-quote {
+  margin: 0;
+  color: var(--heading-strong);
+  font-family: var(--editorial-serif);
+  font-size: 1.08rem;
+  line-height: 1.7;
 }
 
 .journal-mode-row {
@@ -2906,6 +3115,12 @@
   background: var(--status-error-bg);
   color: var(--status-error-text);
   border: 1px solid var(--status-error-border);
+}
+
+.status-banner-note {
+  background: linear-gradient(180deg, var(--note-surface-start), var(--note-surface-end));
+  color: var(--heading-strong);
+  border: 1px solid var(--note-border);
 }
 
 .overview-grid {
@@ -2977,6 +3192,10 @@
   box-shadow: 0 14px 24px var(--action-shadow);
 }
 
+.dashboard-skeleton-card {
+  overflow: hidden;
+}
+
 .chart-card,
 .insight-card,
 .entries-card {
@@ -3040,6 +3259,41 @@
 .entries-list {
   display: grid;
   gap: 16px;
+}
+
+.entries-utility-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.entries-utility-copy {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.entries-export-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 11px 16px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-card) 76%, white 12%);
+  color: var(--heading-strong);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.entries-export-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .entries-filter-row {
@@ -3270,6 +3524,12 @@
   text-align: center;
 }
 
+.soft-empty-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+}
+
 .disclaimer-card {
   border-radius: 18px;
   background: var(--alert-surface);
@@ -3288,6 +3548,96 @@
 .soft-empty p {
   margin: 0;
   color: var(--text-secondary);
+}
+
+.ui-skeleton {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-card-border) 42%, white 42%);
+}
+
+.ui-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.62), transparent);
+  animation: ui-skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+.ui-skeleton-pill {
+  width: 134px;
+  height: 32px;
+}
+
+.ui-skeleton-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 10px;
+}
+
+.ui-skeleton-line {
+  height: 12px;
+  border-radius: 999px;
+}
+
+.ui-skeleton-line-xs {
+  width: 32%;
+}
+
+.ui-skeleton-line-sm {
+  width: 42%;
+}
+
+.ui-skeleton-line-md {
+  width: 64%;
+}
+
+.ui-skeleton-line-lg {
+  width: 88%;
+}
+
+.ui-skeleton-button {
+  width: 164px;
+  height: 48px;
+}
+
+.ui-skeleton-input {
+  flex: 1 1 280px;
+  height: 50px;
+  border-radius: 16px;
+}
+
+.ui-skeleton-select {
+  width: 164px;
+  height: 50px;
+  border-radius: 16px;
+}
+
+.ui-skeleton-chip {
+  width: 168px;
+  height: 42px;
+  border-radius: 18px;
+}
+
+.ui-skeleton-chart {
+  width: 100%;
+  height: 300px;
+  border-radius: 24px;
+}
+
+.ui-skeleton-bar {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+}
+
+@keyframes ui-skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 .footer-card {
@@ -3577,6 +3927,17 @@
   }
 }
 
+@keyframes page-stage-shift {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /*
  * Scoped transitions (not `transition: all`) so keyframed transform/opacity on `.ambient-bg`
  * are not smoothed every frame. Ambient subtree is forced to `none` below.
@@ -3839,6 +4200,7 @@ textarea:focus {
   }
 
   .workspace-bar,
+  .section-heading-top,
   .entry-header,
   .entry-footer,
   .journal-toolbar {
@@ -3877,6 +4239,16 @@ textarea:focus {
   .entry-footer {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .entries-utility-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .field-date-display {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .entry-score-stack {
@@ -4034,8 +4406,25 @@ textarea:focus {
     align-items: stretch;
   }
 
+  .soft-empty-actions {
+    justify-content: stretch;
+  }
+
+  .soft-empty-actions .dashboard-nudge-button {
+    width: 100%;
+  }
+
   .entries-filter-select {
     flex-basis: auto;
+  }
+
+  .ui-skeleton-select,
+  .ui-skeleton-button {
+    width: 100%;
+  }
+
+  .entries-export-button {
+    width: 100%;
   }
 
   .preferences-overlay {

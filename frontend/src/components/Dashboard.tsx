@@ -91,6 +91,55 @@ const getStressInterpretation = (value: number) => {
   return 'Things have felt comparatively lighter than your heavier stretches.';
 };
 
+const DashboardLoadingState = () => (
+  <div className="space-y-6" aria-hidden>
+    <div className="panel-card dashboard-nudge-card dashboard-skeleton-card">
+      <div className="dashboard-nudge-copy">
+        <span className="ui-skeleton ui-skeleton-pill" />
+        <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-lg" />
+        <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-md" />
+      </div>
+      <span className="ui-skeleton ui-skeleton-button" />
+    </div>
+
+    <div className="overview-grid">
+      {[0, 1].map((index) => (
+        <div key={index} className="metric-card dashboard-skeleton-card">
+          <span className="ui-skeleton ui-skeleton-icon" />
+          <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-sm" />
+          <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-md" />
+          <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-lg" />
+        </div>
+      ))}
+    </div>
+
+    <div className="panel-card insight-card dashboard-skeleton-card">
+      <div className="section-heading">
+        <span className="ui-skeleton ui-skeleton-pill" />
+        <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-lg" />
+        <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-md" />
+      </div>
+      <div className="insight-list">
+        {[0, 1, 2].map((index) => (
+          <span key={index} className="ui-skeleton ui-skeleton-chip" />
+        ))}
+      </div>
+    </div>
+
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 dashboard-skeleton-grid">
+      {[0, 1].map((index) => (
+        <div key={index} className="panel-card chart-card dashboard-skeleton-card">
+          <div className="section-heading">
+            <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-sm" />
+            <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-md" />
+          </div>
+          <div className="ui-skeleton ui-skeleton-chart" />
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
 const Dashboard: React.FC<DashboardProps> = ({
   entries,
   loading = false,
@@ -246,16 +295,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const averageStress = averageStressValue.toFixed(1);
 
   if (loading) {
-    return (
-      <div className="panel-card chart-card">
-        <div className="flex items-center justify-center h-64">
-          <div
-            className="animate-spin rounded-full h-8 w-8 border-b-2"
-            style={{ borderColor: 'transparent', borderBottomColor: 'var(--icon-accent)' }}
-          ></div>
-        </div>
-      </div>
-    );
+    return <DashboardLoadingState />;
   }
 
   if (trends.length === 0 || !insights) {
@@ -277,8 +317,19 @@ const Dashboard: React.FC<DashboardProps> = ({
     return (
       <div className="soft-empty">
         <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-        <h3 className="text-lg font-semibold">No dashboard data yet</h3>
-        <p>Start writing journal entries to see your mood trends and insights.</p>
+        <h3 className="text-lg font-semibold">Your first entry will start the story</h3>
+        <p>
+          Once you write, this space will begin turning your reflections into patterns you can
+          revisit gently.
+        </p>
+        {onStartWriting ? (
+          <div className="soft-empty-actions">
+            <button type="button" className="dashboard-nudge-button" onClick={onStartWriting}>
+              <PenSquare className="h-4 w-4" />
+              Write your first entry
+            </button>
+          </div>
+        ) : null}
       </div>
     );
   }

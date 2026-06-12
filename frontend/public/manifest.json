@@ -1,6 +1,6 @@
 {
   "short_name": "Eunoia",
-  "name": "Eunoia",
+  "name": "Eunoia Journal",
   "icons": [
     {
       "src": "favicon.ico",
@@ -20,6 +20,6 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#0f3854",
+  "background_color": "#f8fafc"
 }
