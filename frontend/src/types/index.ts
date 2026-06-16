@@ -18,6 +18,11 @@ export interface JournalEntryCreate {
   date?: string;
 }
 
+export interface JournalEntryUpdate {
+  content?: string;
+  date?: string;
+}
+
 export interface SentimentTrend {
   date: string;
   avg_sentiment: number;

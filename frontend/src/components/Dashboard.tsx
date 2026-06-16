@@ -1,47 +1,31 @@
 import React, { useMemo } from 'react';
 import {
-  Area,
-  AreaChart,
-  Bar,
   BarChart,
-  CartesianGrid,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
+  Bar,
   XAxis,
   YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  Line,
 } from 'recharts';
-import { AlertCircle, Brain, Calendar, Heart, PenSquare, Sparkles, TrendingUp } from 'lucide-react';
+import { TrendingUp, Brain, Heart, Calendar, AlertCircle, PenSquare, Sparkles } from 'lucide-react';
 import { Insight, JournalEntry as JournalEntryType, SentimentTrend } from '../types';
+import { getDateFromDateKey, getEntryDateKey, getLocalDateKey } from '../utils/dateKeys';
 
 interface DashboardProps {
   entries: JournalEntryType[];
   loading?: boolean;
-  error?: string | null;
-  onRetry?: () => void | Promise<void>;
+  error?: string;
+  onRetry?: () => void;
   onStartWriting?: () => void;
 }
 
 type InsightSummary = Insight & {
   entry_count: number;
   timeframe_label: string;
-};
-
-const toLocalDateKey = (date: Date) => {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const getDateKey = (entry: JournalEntryType) => {
-  const rawDate = entry.date || entry.created_at || entry.updated_at;
-  if (!rawDate) {
-    return toLocalDateKey(new Date());
-  }
-
-  const parsedDate = new Date(rawDate);
-  return Number.isNaN(parsedDate.getTime()) ? rawDate.split('T')[0] : toLocalDateKey(parsedDate);
 };
 
 const getVisibleEmotion = (entry: JournalEntryType) =>
@@ -91,59 +75,113 @@ const getStressInterpretation = (value: number) => {
   return 'Things have felt comparatively lighter than your heavier stretches.';
 };
 
-const DashboardLoadingState = () => (
-  <div className="space-y-6" aria-hidden>
-    <div className="panel-card dashboard-nudge-card dashboard-skeleton-card">
-      <div className="dashboard-nudge-copy">
-        <span className="ui-skeleton ui-skeleton-pill" />
-        <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-lg" />
-        <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-md" />
-      </div>
-      <span className="ui-skeleton ui-skeleton-button" />
-    </div>
+type TrendComparison = {
+  label: string;
+  tone: 'positive' | 'negative' | 'neutral';
+};
 
-    <div className="overview-grid">
-      {[0, 1].map((index) => (
-        <div key={index} className="metric-card dashboard-skeleton-card">
-          <span className="ui-skeleton ui-skeleton-icon" />
-          <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-sm" />
-          <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-md" />
-          <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-lg" />
-        </div>
-      ))}
-    </div>
+type ChartTooltipProps = {
+  active?: boolean;
+  label?: string | number;
+  payload?: Array<{ value?: number | string }>;
+  metricLabel: string;
+};
 
-    <div className="panel-card insight-card dashboard-skeleton-card">
-      <div className="section-heading">
-        <span className="ui-skeleton ui-skeleton-pill" />
-        <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-lg" />
-        <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-md" />
-      </div>
-      <div className="insight-list">
-        {[0, 1, 2].map((index) => (
-          <span key={index} className="ui-skeleton ui-skeleton-chip" />
-        ))}
-      </div>
-    </div>
+const getEntryTimestamp = (entry: JournalEntryType) => {
+  const rawDate = entry.created_at || entry.date || entry.updated_at;
+  const parsedDate = new Date(rawDate);
 
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 dashboard-skeleton-grid">
-      {[0, 1].map((index) => (
-        <div key={index} className="panel-card chart-card dashboard-skeleton-card">
-          <div className="section-heading">
-            <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-sm" />
-            <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-md" />
-          </div>
-          <div className="ui-skeleton ui-skeleton-chart" />
-        </div>
-      ))}
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate.getTime();
+};
+
+const getAverage = (values: number[]) =>
+  values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+
+const getTrendComparison = (
+  entries: JournalEntryType[],
+  metric: 'sentiment_score' | 'stress_level',
+): TrendComparison => {
+  const now = new Date();
+  const currentPeriodStart = new Date(now);
+  currentPeriodStart.setDate(now.getDate() - 30);
+  const previousPeriodStart = new Date(now);
+  previousPeriodStart.setDate(now.getDate() - 60);
+
+  const currentValues: number[] = [];
+  const previousValues: number[] = [];
+
+  entries.forEach((entry) => {
+    const timestamp = getEntryTimestamp(entry);
+    const value = entry[metric];
+
+    if (timestamp === null || value === null) {
+      return;
+    }
+
+    if (timestamp >= currentPeriodStart.getTime() && timestamp <= now.getTime()) {
+      currentValues.push(value);
+    } else if (
+      timestamp >= previousPeriodStart.getTime() &&
+      timestamp < currentPeriodStart.getTime()
+    ) {
+      previousValues.push(value);
+    }
+  });
+
+  const currentAverage = getAverage(currentValues);
+  const previousAverage = getAverage(previousValues);
+
+  if (currentAverage === null || previousAverage === null) {
+    return {
+      label: 'Not enough data yet',
+      tone: 'neutral',
+    };
+  }
+
+  const delta = currentAverage - previousAverage;
+  const isStress = metric === 'stress_level';
+  const isPositiveMovement = isStress ? delta < 0 : delta > 0;
+  const arrow = delta > 0 ? '↑' : delta < 0 ? '↓' : '→';
+  const signedDelta = `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}`;
+
+  return {
+    label: `${arrow} ${signedDelta} vs previous 30 days`,
+    tone: Math.abs(delta) < 0.05 ? 'neutral' : isPositiveMovement ? 'positive' : 'negative',
+  };
+};
+
+const ChartTooltip: React.FC<ChartTooltipProps> = ({ active, label, payload, metricLabel }) => {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  const value = payload[0]?.value;
+  const numericValue = typeof value === 'number' ? value : Number(value);
+  const formattedValue = Number.isFinite(numericValue) ? numericValue.toFixed(1) : 'N/A';
+  const formattedDate =
+    typeof label === 'string'
+      ? getDateFromDateKey(label).toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        })
+      : 'Unknown date';
+
+  return (
+    <div className="chart-tooltip">
+      <span>{formattedDate}</span>
+      <strong>
+        {metricLabel}: {formattedValue}/10
+      </strong>
     </div>
-  </div>
-);
+  );
+};
 
 const Dashboard: React.FC<DashboardProps> = ({
   entries,
   loading = false,
-  error = null,
+  error = '',
   onRetry,
   onStartWriting,
 }) => {
@@ -159,7 +197,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     >();
 
     entries.forEach((entry) => {
-      const dateKey = getDateKey(entry);
+      const dateKey = getEntryDateKey(entry);
       const existing = dailyData.get(dateKey) ?? {
         sentimentScores: [],
         stressLevels: [],
@@ -205,7 +243,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     const avgStress = stressLevels.reduce((sum, score) => sum + score, 0) / stressLevels.length;
     const mostCommonEmotion = getMostCommon(emotions);
 
-    const uniqueDays = new Set(entries.map(getDateKey)).size;
+    const uniqueDays = new Set(entries.map(getEntryDateKey)).size;
     const firstEntryDate = datedEntries[0];
     const lastEntryDate = datedEntries[datedEntries.length - 1];
     const spanDays =
@@ -235,7 +273,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       );
     } else {
       insightLines.push(
-        'Your entries are more occasional right now, so each new reflection will sharpen the pattern tracking.',
+        `Your entries are more occasional right now, so each new reflection will sharpen the pattern tracking.`,
       );
     }
 
@@ -279,56 +317,72 @@ const Dashboard: React.FC<DashboardProps> = ({
   }, [entries]);
 
   const formatDate = (dateString: string) =>
-    new Date(dateString).toLocaleDateString('en-US', {
+    getDateFromDateKey(dateString).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
     });
 
   const hasWrittenToday = useMemo(() => {
-    const today = toLocalDateKey(new Date());
-    return entries.some((entry) => getDateKey(entry) === today);
+    const today = getLocalDateKey();
+    return entries.some((entry) => getEntryDateKey(entry) === today);
   }, [entries]);
 
-  const averageMoodValue = insights?.avg_sentiment ?? 0;
-  const averageStressValue = insights?.avg_stress ?? 0;
+  const averageMoodValue =
+    entries.length > 0
+      ? entries.reduce((sum, entry) => sum + (entry.sentiment_score ?? 0), 0) / entries.length
+      : 0;
+  const averageStressValue =
+    entries.length > 0
+      ? entries.reduce((sum, entry) => sum + (entry.stress_level ?? 0), 0) / entries.length
+      : 0;
   const averageMood = averageMoodValue.toFixed(1);
   const averageStress = averageStressValue.toFixed(1);
+  const moodComparison = useMemo(() => getTrendComparison(entries, 'sentiment_score'), [entries]);
+  const stressComparison = useMemo(() => getTrendComparison(entries, 'stress_level'), [entries]);
 
   if (loading) {
-    return <DashboardLoadingState />;
+    return (
+      <div className="panel-card chart-card">
+        <div className="flex items-center justify-center h-64">
+          <div
+            className="animate-spin rounded-full h-8 w-8 border-b-2"
+            style={{ borderColor: 'transparent', borderBottomColor: 'var(--icon-accent)' }}
+          ></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="soft-empty">
+        <AlertCircle className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+        <h3 className="text-lg font-semibold">We could not load your dashboard</h3>
+        <p>{error}</p>
+        {onRetry ? (
+          <button type="button" className="soft-empty-action" onClick={onRetry}>
+            Try again
+          </button>
+        ) : null}
+      </div>
+    );
   }
 
   if (trends.length === 0 || !insights) {
-    if (error) {
-      return (
-        <div className="soft-empty">
-          <AlertCircle className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-          <h3 className="text-lg font-semibold">We couldn&apos;t load your dashboard yet</h3>
-          <p>{error}</p>
-          {onRetry ? (
-            <button type="button" className="dashboard-nudge-button mt-4" onClick={onRetry}>
-              Try again
-            </button>
-          ) : null}
-        </div>
-      );
-    }
-
     return (
       <div className="soft-empty">
-        <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-        <h3 className="text-lg font-semibold">Your first entry will start the story</h3>
-        <p>
-          Once you write, this space will begin turning your reflections into patterns you can
-          revisit gently.
-        </p>
+        <div className="soft-empty-illustration" aria-hidden>
+          <Calendar className="h-5 w-5" />
+          <TrendingUp className="h-5 w-5" />
+          <Brain className="h-5 w-5" />
+        </div>
+        <h3 className="text-lg font-semibold">Your first entry unlocks your dashboard</h3>
+        <p>Once you write, Eunoia can begin turning your reflections into gentle patterns.</p>
         {onStartWriting ? (
-          <div className="soft-empty-actions">
-            <button type="button" className="dashboard-nudge-button" onClick={onStartWriting}>
-              <PenSquare className="h-4 w-4" />
-              Write your first entry
-            </button>
-          </div>
+          <button type="button" className="soft-empty-action" onClick={onStartWriting}>
+            <PenSquare className="h-4 w-4" />
+            Write your first entry
+          </button>
         ) : null}
       </div>
     );
@@ -336,17 +390,6 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="space-y-6">
-      {error ? (
-        <div className="status-banner status-banner-error" role="alert">
-          {error}
-          {onRetry ? (
-            <button type="button" className="auth-inline-link" onClick={onRetry}>
-              Try again
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
       <div className="panel-card dashboard-nudge-card">
         <div className="dashboard-nudge-copy">
           <div className="eyebrow">
@@ -376,12 +419,18 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div className="metric-card">
           <TrendingUp className="h-5 w-5" style={{ color: 'var(--icon-accent)' }} />
           <strong>{averageMood}</strong>
+          <span className={`metric-trend metric-trend-${moodComparison.tone}`}>
+            {moodComparison.label}
+          </span>
           <span>Mood across all saved entries.</span>
           <p className="metric-meaning">{getMoodInterpretation(averageMoodValue)}</p>
         </div>
         <div className="metric-card">
           <Heart className="h-5 w-5" style={{ color: 'var(--icon-heart)' }} />
           <strong>{averageStress}</strong>
+          <span className={`metric-trend metric-trend-${stressComparison.tone}`}>
+            {stressComparison.label}
+          </span>
           <span>Stress across the same history.</span>
           <p className="metric-meaning">{getStressInterpretation(averageStressValue)}</p>
         </div>
@@ -455,23 +504,29 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={trends}>
+            <AreaChart data={trends} margin={{ top: 12, right: 14, bottom: 8, left: 10 }}>
               <defs>
                 <linearGradient id="moodAreaFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--chart-line)" stopOpacity={0.22} />
-                  <stop offset="100%" stopColor="var(--chart-line)" stopOpacity={0.03} />
+                  <stop offset="0%" stopColor="var(--chart-fill-start)" />
+                  <stop offset="100%" stopColor="var(--chart-fill-end)" />
                 </linearGradient>
               </defs>
-              <CartesianGrid
-                stroke="rgba(148, 163, 184, 0.18)"
-                strokeDasharray="4 6"
-                vertical={false}
-              />
+              <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="4 6" vertical={false} />
               <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 12 }} />
-              <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} />
+              <YAxis
+                domain={[0, 10]}
+                tick={{ fontSize: 12 }}
+                label={{
+                  value: 'Score (0-10)',
+                  angle: -90,
+                  position: 'insideLeft',
+                  offset: -2,
+                  style: { fill: 'var(--text-secondary)', fontSize: 12 },
+                }}
+              />
               <Tooltip
-                labelFormatter={(value) => formatDate(value)}
-                formatter={(value: number) => [value.toFixed(1), 'Mood']}
+                content={<ChartTooltip metricLabel="Mood" />}
+                cursor={{ stroke: 'var(--chart-cursor)', strokeWidth: 2 }}
               />
               <Area
                 type="monotone"
@@ -506,19 +561,25 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={trends}>
-              <CartesianGrid
-                stroke="rgba(148, 163, 184, 0.18)"
-                strokeDasharray="4 6"
-                vertical={false}
-              />
+            <BarChart data={trends} margin={{ top: 12, right: 14, bottom: 8, left: 10 }}>
+              <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="4 6" vertical={false} />
               <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 12 }} />
-              <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} />
-              <Tooltip
-                labelFormatter={(value) => formatDate(value)}
-                formatter={(value: number) => [value.toFixed(1), 'Stress']}
+              <YAxis
+                domain={[0, 10]}
+                tick={{ fontSize: 12 }}
+                label={{
+                  value: 'Score (0-10)',
+                  angle: -90,
+                  position: 'insideLeft',
+                  offset: -2,
+                  style: { fill: 'var(--text-secondary)', fontSize: 12 },
+                }}
               />
-              <Bar dataKey="avg_stress" fill="#d28e8a" radius={[12, 12, 0, 0]} />
+              <Tooltip
+                content={<ChartTooltip metricLabel="Stress" />}
+                cursor={{ fill: 'var(--chart-bar-cursor)' }}
+              />
+              <Bar dataKey="avg_stress" fill="var(--chart-bar)" radius={[12, 12, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

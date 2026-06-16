@@ -12,7 +12,7 @@ const DisplayNameSetup: React.FC<DisplayNameSetupProps> = ({ onComplete }) => {
   const [error, setError] = useState('');
   const [isValid, setIsValid] = useState(false);
 
-  const { user, session } = useAuth();
+  const { session } = useAuth();
 
   const validateDisplayName = (name: string) => {
     const trimmed = name.trim();

@@ -1,46 +1,46 @@
 import React, { useMemo, useState } from 'react';
-import { BookOpen, Brain, Download, Heart, Search, Sparkles } from 'lucide-react';
+import { AlertCircle, BookOpen, Brain, Heart, PenSquare, Search, Sparkles, X } from 'lucide-react';
 import { JournalEntry } from '../types';
 
 interface RecentEntriesProps {
   entries: JournalEntry[];
   loading?: boolean;
-  error?: string | null;
-  onRetry?: () => void | Promise<void>;
+  error?: string;
+  onRetry?: () => void;
   onStartWriting?: () => void;
 }
 
-const getLocalDateKey = (value = new Date()) => {
-  const year = value.getFullYear();
-  const month = `${value.getMonth() + 1}`.padStart(2, '0');
-  const day = `${value.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
+const formatDate = (dateString: string | null | undefined) => {
+  if (!dateString) return 'Unknown date';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'Unknown date';
+  const datePart = date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const timePart = date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
+  return `${datePart} \u00b7 ${timePart}`;
 };
+
+const formatEntryTimestamp = (entry: JournalEntry) =>
+  formatDate(entry.created_at || entry.date || entry.updated_at);
 
 const RecentEntries: React.FC<RecentEntriesProps> = ({
   entries,
   loading = false,
-  error = null,
+  error = '',
   onRetry,
   onStartWriting,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [emotionFilter, setEmotionFilter] = useState('all');
   const [expandedEntries, setExpandedEntries] = useState<number[]>([]);
-
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return 'Unknown date';
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Unknown date';
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   const getVisibleEmotion = (entry: JournalEntry) =>
     (entry.emotion && entry.emotion.toLowerCase() !== 'neutral'
@@ -101,47 +101,11 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({
         !query ||
         entry.content.toLowerCase().includes(query) ||
         emotion.includes(query) ||
-        formatDate(entry.date).toLowerCase().includes(query);
+        formatEntryTimestamp(entry).toLowerCase().includes(query);
 
       return matchesEmotion && matchesQuery;
     });
   }, [entries, emotionFilter, searchQuery]);
-
-  const handleExport = () => {
-    if (typeof window === 'undefined' || entries.length === 0) {
-      return;
-    }
-
-    const exportLines = entries.map((entry, index) => {
-      const mood =
-        entry.sentiment_score !== null ? `${entry.sentiment_score.toFixed(1)}/10` : 'N/A';
-      const stress = entry.stress_level !== null ? `${entry.stress_level.toFixed(1)}/10` : 'N/A';
-
-      return [
-        `Entry ${entries.length - index}`,
-        `Date: ${formatDate(entry.date)}`,
-        `Emotion: ${getVisibleEmotion(entry)}`,
-        `Mood: ${mood}`,
-        `Stress: ${stress}`,
-        '',
-        entry.content.trim(),
-        '',
-        '---',
-        '',
-      ].join('\n');
-    });
-
-    const blob = new Blob([exportLines.join('\n')], {
-      type: 'text/plain;charset=utf-8',
-    });
-
-    const url = window.URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `eunoia-journal-${getLocalDateKey()}.txt`;
-    anchor.click();
-    window.URL.revokeObjectURL(url);
-  };
 
   const toggleExpanded = (entryId: number) => {
     setExpandedEntries((current) =>
@@ -152,86 +116,49 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({
   if (loading) {
     return (
       <div className="panel-card entries-card">
-        <div className="section-heading" aria-hidden>
-          <div>
-            <span className="ui-skeleton ui-skeleton-pill" />
-            <div className="mt-4">
-              <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-lg" />
-            </div>
-            <div className="mt-2">
-              <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-md" />
-            </div>
-          </div>
-        </div>
-
-        <div className="entries-filter-row" aria-hidden>
-          <span className="ui-skeleton ui-skeleton-input" />
-          <span className="ui-skeleton ui-skeleton-select" />
-        </div>
-
-        <div className="entries-list" aria-hidden>
-          {[0, 1, 2].map((index) => (
-            <article key={index} className="entry-card dashboard-skeleton-card">
-              <div className="entry-header">
-                <div className="entry-header-main">
-                  <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-xs" />
-                  <div className="entry-emotion-hero">
-                    <span className="ui-skeleton ui-skeleton-chip" />
-                    <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-sm" />
-                  </div>
-                </div>
-                <div className="entry-badges">
-                  <span className="ui-skeleton ui-skeleton-chip" />
-                  <span className="ui-skeleton ui-skeleton-chip" />
-                </div>
-              </div>
-              <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-lg" />
-              <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-md" />
-              <div className="entry-footer">
-                <div className="entry-score-stack">
-                  <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-sm" />
-                  <div className="ui-skeleton ui-skeleton-bar" />
-                  <span className="ui-skeleton ui-skeleton-line ui-skeleton-line-sm" />
-                  <div className="ui-skeleton ui-skeleton-bar" />
-                </div>
-              </div>
-            </article>
-          ))}
+        <div className="flex items-center justify-center h-32">
+          <div
+            className="animate-spin rounded-full h-6 w-6 border-b-2"
+            style={{ borderColor: 'transparent', borderBottomColor: 'var(--icon-accent)' }}
+          ></div>
         </div>
       </div>
     );
   }
 
-  if (entries.length === 0) {
-    if (error) {
-      return (
-        <div className="soft-empty">
-          <BookOpen className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-          <h3 className="text-lg font-semibold">We couldn&apos;t load your entries yet</h3>
-          <p>{error}</p>
-          {onRetry ? (
-            <button type="button" className="dashboard-nudge-button mt-4" onClick={onRetry}>
-              Try again
-            </button>
-          ) : null}
-        </div>
-      );
-    }
-
+  if (error) {
     return (
       <div className="soft-empty">
-        <BookOpen className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-        <h3 className="text-lg font-semibold">Your timeline begins with one honest entry</h3>
+        <AlertCircle className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+        <h3 className="text-lg font-semibold">We could not load your entries</h3>
+        <p>{error}</p>
+        {onRetry ? (
+          <button type="button" className="soft-empty-action" onClick={onRetry}>
+            Try again
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (entries.length === 0) {
+    return (
+      <div className="soft-empty">
+        <div className="soft-empty-illustration" aria-hidden>
+          <BookOpen className="h-5 w-5" />
+          <Sparkles className="h-5 w-5" />
+          <Heart className="h-5 w-5" />
+        </div>
+        <h3 className="text-lg font-semibold">Your entries will gather here</h3>
         <p>
-          Your first reflection will start the story here, giving the rest of the app something real
-          to build from.
+          Start with one reflection. The timeline will stay gentle, searchable, and easy to return
+          to.
         </p>
         {onStartWriting ? (
-          <div className="soft-empty-actions">
-            <button type="button" className="dashboard-nudge-button" onClick={onStartWriting}>
-              Write your first entry
-            </button>
-          </div>
+          <button type="button" className="soft-empty-action" onClick={onStartWriting}>
+            <PenSquare className="h-4 w-4" />
+            Write your first entry
+          </button>
         ) : null}
       </div>
     );
@@ -239,17 +166,6 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({
 
   return (
     <div className="panel-card entries-card">
-      {error ? (
-        <div className="status-banner status-banner-error mb-4" role="alert">
-          {error}
-          {onRetry ? (
-            <button type="button" className="auth-inline-link" onClick={onRetry}>
-              Try again
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
       <div className="section-heading">
         <div>
           <div className="eyebrow">
@@ -264,21 +180,10 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({
         </div>
       </div>
 
-      <div className="entries-utility-row">
-        <p className="entries-utility-copy">Your journal stays yours, including outside the app.</p>
-        <button
-          type="button"
-          className="entries-export-button"
-          onClick={handleExport}
-          disabled={entries.length === 0}
-        >
-          <Download className="h-4 w-4" />
-          Download as text
-        </button>
-      </div>
-
       <div className="entries-filter-row">
-        <label className="entries-search-shell">
+        <label
+          className={`entries-search-shell ${searchQuery ? 'entries-search-shell-active' : ''}`}
+        >
           <Search className="h-4 w-4" />
           <input
             type="text"
@@ -287,6 +192,16 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({
             placeholder="Search entries or feelings"
             className="entries-search-input"
           />
+          {searchQuery ? (
+            <button
+              type="button"
+              className="entries-search-clear"
+              onClick={() => setSearchQuery('')}
+              aria-label="Clear entry search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
         </label>
 
         <select
@@ -324,17 +239,23 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({
           const roundedStress = entry.stress_level !== null ? Math.round(entry.stress_level) : null;
 
           return (
-            <article key={entry.id} className={`entry-card ${getEntryTone(entry.sentiment_score)}`}>
+            <article
+              key={entry.id}
+              className={`entry-card ${getEntryTone(entry.sentiment_score)} ${
+                isExpanded ? 'entry-card-expanded' : ''
+              }`}
+            >
               <div className="entry-header">
                 <div className="entry-header-main">
                   <div className="entry-meta">
-                    <span className="entry-meta-text">{formatDate(entry.date)}</span>
+                    <span className="entry-meta-text">{formatEntryTimestamp(entry)}</span>
                   </div>
                   <div className="entry-emotion-hero">
                     <span className="entry-emotion-pill">{visibleEmotion}</span>
                     <span className="entry-tone-subtitle">
-                      {getMoodLabel(entry.sentiment_score)} mood •{' '}
-                      {getStressLabel(entry.stress_level)} stress
+                      {`${getMoodLabel(entry.sentiment_score)} mood \u00b7 ${getStressLabel(
+                        entry.stress_level,
+                      )} stress`}
                     </span>
                   </div>
                 </div>
@@ -381,14 +302,19 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({
                       {roundedMood !== null ? `${roundedMood}/10` : 'N/A'}
                     </span>
                   </div>
-                  <div className="entry-score-bar" aria-hidden>
-                    <span
-                      className="entry-score-fill"
-                      style={{
-                        width: `${((roundedMood ?? 0) / 10) * 100}%`,
-                        background: getMoodIconColor(entry.sentiment_score),
-                      }}
-                    />
+                  <div className="entry-score-bar-row">
+                    <div className="entry-score-bar" aria-hidden>
+                      <span
+                        className="entry-score-fill"
+                        style={{
+                          width: `${((roundedMood ?? 0) / 10) * 100}%`,
+                          background: getMoodIconColor(entry.sentiment_score),
+                        }}
+                      />
+                    </div>
+                    <span className="entry-score-bar-value">
+                      {roundedMood !== null ? `${roundedMood}/10` : 'N/A'}
+                    </span>
                   </div>
 
                   <div className="entry-score-row">
@@ -403,14 +329,19 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({
                       {roundedStress !== null ? `${roundedStress}/10` : 'N/A'}
                     </span>
                   </div>
-                  <div className="entry-score-bar" aria-hidden>
-                    <span
-                      className="entry-score-fill"
-                      style={{
-                        width: `${((roundedStress ?? 0) / 10) * 100}%`,
-                        background: getStressIconColor(entry.stress_level),
-                      }}
-                    />
+                  <div className="entry-score-bar-row">
+                    <div className="entry-score-bar" aria-hidden>
+                      <span
+                        className="entry-score-fill"
+                        style={{
+                          width: `${((roundedStress ?? 0) / 10) * 100}%`,
+                          background: getStressIconColor(entry.stress_level),
+                        }}
+                      />
+                    </div>
+                    <span className="entry-score-bar-value">
+                      {roundedStress !== null ? `${roundedStress}/10` : 'N/A'}
+                    </span>
                   </div>
                 </div>
 

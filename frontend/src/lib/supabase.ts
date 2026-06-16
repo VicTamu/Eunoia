@@ -3,6 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || '';
 const fallbackSiteUrl = process.env.REACT_APP_SITE_URL?.trim() || 'https://www.myeunoia.online';
+const fallbackSupabaseUrl = 'http://localhost:54321';
+const fallbackSupabaseAnonKey = 'missing-anon-key';
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 const resolveAuthRedirectUrl = (query: string) => {
   const base =
@@ -13,20 +16,24 @@ const resolveAuthRedirectUrl = (query: string) => {
   return new URL(`/${query}`, base).toString();
 };
 
-if (!supabaseUrl || !supabaseAnonKey) {
+if (!isSupabaseConfigured) {
   // eslint-disable-next-line no-console
   console.warn('Supabase credentials not found. Authentication will be disabled.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-    // Force fresh tokens on every request
-    flowType: 'pkce',
+export const supabase = createClient(
+  supabaseUrl || fallbackSupabaseUrl,
+  supabaseAnonKey || fallbackSupabaseAnonKey,
+  {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      // Force fresh tokens on every request
+      flowType: 'pkce',
+    },
   },
-});
+);
 
 // Auth helper functions
 export const auth = {

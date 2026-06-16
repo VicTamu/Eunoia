@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowDown,
   Brain,
-  ChevronDown,
   Leaf,
   Lock,
   LogIn,
@@ -56,7 +55,6 @@ const processSteps = [
 export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
   const [promptValue, setPromptValue] = useState('');
   const [activePromptDemo, setActivePromptDemo] = useState<string | null>(null);
-  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
   const promptNudge = useMemo(() => {
     if (!promptValue.trim()) {
@@ -121,7 +119,7 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
           className="landing-cta-primary"
           onClick={() => setActivePromptDemo(idSuffix)}
         >
-          Keep this safely
+          Save this entry
         </button>
         <p className="landing-prompt-hint">Press save or just pause here for a moment.</p>
       </div>
@@ -155,6 +153,10 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
         <main className="landing-main">
           <div className="landing-hero-grid">
             <section className="landing-hero-copy" data-reveal>
+              <div className="landing-mobile-badge">
+                <Leaf className="h-4 w-4" aria-hidden />
+                Private daily journal
+              </div>
               <h1 className="landing-headline">
                 Understand yourself, gently.
                 <span className="landing-headline-soft">Reflect with more clarity.</span>
@@ -282,7 +284,7 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
 
           <section
             id="landing-how-it-works"
-            className="landing-detail-section landing-detail-section-compact landing-band landing-band-contrast"
+            className="landing-detail-section landing-band landing-band-contrast"
             aria-label="How Eunoia works"
             data-reveal
           >
@@ -294,7 +296,7 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
             </div>
 
             <div className="landing-option-stack">
-              <article className="landing-option-card landing-option-card-accent">
+              <article className="landing-option-card">
                 <div className="landing-option-header">
                   <h3>A simple rhythm you can actually return to.</h3>
                 </div>
@@ -352,32 +354,10 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
               </div>
 
               <div className="landing-faq-stack landing-faq-stack-leading">
-                {faqItems.map((item, index) => (
-                  <article
-                    key={item.question}
-                    className={`landing-faq-card ${openFaqIndex === index ? 'landing-faq-card-open' : ''}`}
-                  >
-                    <button
-                      type="button"
-                      className="landing-faq-toggle"
-                      onClick={() =>
-                        setOpenFaqIndex((currentIndex) => (currentIndex === index ? null : index))
-                      }
-                      aria-expanded={openFaqIndex === index}
-                      aria-controls={`landing-faq-answer-${index}`}
-                    >
-                      <span>{item.question}</span>
-                      <ChevronDown
-                        className={`landing-faq-icon ${openFaqIndex === index ? 'landing-faq-icon-open' : ''}`}
-                        aria-hidden
-                      />
-                    </button>
-                    <div
-                      id={`landing-faq-answer-${index}`}
-                      className={`landing-faq-answer ${openFaqIndex === index ? 'landing-faq-answer-open' : ''}`}
-                    >
-                      <p>{item.answer}</p>
-                    </div>
+                {faqItems.map((item) => (
+                  <article key={item.question} className="landing-faq-card">
+                    <h3>{item.question}</h3>
+                    <p>{item.answer}</p>
                   </article>
                 ))}
               </div>
@@ -386,6 +366,10 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
 
           <section className="landing-final-cta" aria-label="Create your journal space" data-reveal>
             <div className="landing-final-cta-card">
+              <div className="eyebrow">
+                <Leaf className="h-4 w-4" aria-hidden />
+                Begin softly
+              </div>
               <h2 className="landing-section-title">A quieter place is ready when you are.</h2>
               <p className="landing-section-lede">
                 Start with one entry. Let the rest become clearer over time.

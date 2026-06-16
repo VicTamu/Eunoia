@@ -1,16 +1,18 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
-export type Theme = 'blue' | 'ocean' | 'green';
+export type Theme = 'dark' | 'blue' | 'warm' | 'green';
 
-const VALID_THEMES: Theme[] = ['blue', 'ocean', 'green'];
+const VALID_THEMES: Theme[] = ['warm', 'blue', 'green', 'dark'];
 const LEGACY_THEME_MAP: Record<string, Theme> = {
-  light: 'blue',
+  light: 'warm',
+  ocean: 'blue',
   purple: 'blue',
-  dark: 'ocean',
+  dark: 'dark',
 };
 const THEME_META_COLORS: Record<Theme, string> = {
-  blue: '#f8f5ef',
-  ocean: '#eef6fb',
+  dark: '#0d0d12',
+  blue: '#3b82f6',
+  warm: '#f8f5ef',
   green: '#10b981',
 };
 
@@ -23,7 +25,7 @@ const normalizeTheme = (value: string | null): Theme => {
     return value as Theme;
   }
 
-  return 'blue';
+  return 'warm';
 };
 
 interface ThemeContextType {
@@ -52,7 +54,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     return normalizeTheme(savedTheme);
   });
 
-  const isDark = false;
+  const isDark = theme === 'dark';
 
   useEffect(() => {
     localStorage.setItem('eunoia-theme', theme);

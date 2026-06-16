@@ -1,5 +1,11 @@
 import axios from 'axios';
-import { JournalEntry, JournalEntryCreate, SentimentTrendsResponse, Insight } from '../types';
+import {
+  JournalEntry,
+  JournalEntryCreate,
+  JournalEntryUpdate,
+  SentimentTrendsResponse,
+  Insight,
+} from '../types';
 import { errorHandler, createApiError } from '../utils/errorHandler';
 import { supabase } from '../lib/supabase';
 
@@ -167,6 +173,12 @@ export const journalApi = {
   // Create a new journal entry
   createEntry: async (entry: JournalEntryCreate): Promise<JournalEntry> => {
     const { data } = await api.post(routes.createEntry(), entry);
+    return data as JournalEntry;
+  },
+
+  // Update an existing journal entry
+  updateEntry: async (id: number, entry: JournalEntryUpdate): Promise<JournalEntry> => {
+    const { data } = await api.put(routes.entryById(id), entry);
     return data as JournalEntry;
   },
 

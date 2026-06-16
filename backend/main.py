@@ -5,8 +5,9 @@ from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from pydantic import BaseModel, Field, validator
+import hashlib
 import time
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone, time as datetime_time
 from typing import List, Optional, Dict, Any, Tuple
 import os
 import json
@@ -284,6 +285,67 @@ logger.info("Note: allow_credentials=True, allow_methods=['*'], allow_headers=['
 # Supabase client (service role) for database operations
 supabase_db = auth_service.supabase
 
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+def normalize_entry_datetime(value: Optional[datetime]) -> datetime:
+    if value is None:
+        return utc_now()
+
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+
+    return value.astimezone(timezone.utc)
+
+def parse_entry_datetime(value: Any) -> datetime:
+    if isinstance(value, datetime):
+        return normalize_entry_datetime(value)
+
+    if isinstance(value, str):
+        try:
+            return normalize_entry_datetime(datetime.fromisoformat(value.replace("Z", "+00:00")))
+        except ValueError:
+            return utc_now()
+
+    return utc_now()
+
+def normalize_content_for_hash(content: str) -> str:
+    return re.sub(r'\s+', ' ', content.strip()).lower()
+
+def get_content_hash(content: str) -> str:
+    normalized_content = normalize_content_for_hash(content)
+    return hashlib.sha256(normalized_content.encode("utf-8")).hexdigest()
+
+def find_duplicate_entry(
+    user_id: str,
+    content: str,
+    entry_datetime: datetime,
+    exclude_entry_id: Optional[int] = None,
+) -> Optional[Dict[str, Any]]:
+    content_hash = get_content_hash(content)
+    day_start = datetime.combine(entry_datetime.date(), datetime_time.min, tzinfo=timezone.utc)
+    next_day = day_start + timedelta(days=1)
+
+    resp = (
+        supabase_db.table("journal_entries")
+        .select("*")
+        .eq("user_id", user_id)
+        .gte("date", day_start.isoformat())
+        .lt("date", next_day.isoformat())
+        .order("created_at", desc=False)
+        .execute()
+    )
+
+    for existing_entry in resp.data or []:
+        if exclude_entry_id is not None and existing_entry.get("id") == exclude_entry_id:
+            continue
+        if get_content_hash(existing_entry.get("content") or "") == content_hash:
+            if existing_entry.get("updated_at") is None:
+                existing_entry["updated_at"] = existing_entry.get("created_at") or utc_now().isoformat()
+            return existing_entry
+
+    return None
+
 # Authentication dependency
 def get_current_user_dependency(authorization: str = Header(None)) -> Dict[str, Any]:
     """
@@ -360,6 +422,11 @@ async def create_entry(
     )
     
     try:
+        entry_datetime = normalize_entry_datetime(entry.date)
+        duplicate_entry = find_duplicate_entry(current_user["id"], entry.content, entry_datetime)
+        if duplicate_entry:
+            return duplicate_entry
+
         # Analyze the journal entry using ML models
         try:
             analysis = analyze_journal_entry(entry.content)
@@ -392,7 +459,7 @@ async def create_entry(
         payload = {
             "user_id": current_user["id"],
             "content": entry.content,
-            "date": (entry.date or datetime.utcnow()).isoformat(),
+            "date": entry_datetime.isoformat(),
             "sentiment_score": analysis["sentiment_score"],
             "emotion": analysis["emotion"],
             "emotion_confidence": analysis.get("emotion_confidence"),
@@ -565,7 +632,7 @@ async def update_entry(
     """
     try:
         # Get existing entry - ensure it belongs to the user
-        existing = supabase_db.table("journal_entries").select("id").eq("id", entry_id).eq("user_id", current_user["id"]).single().execute().data
+        existing = supabase_db.table("journal_entries").select("*").eq("id", entry_id).eq("user_id", current_user["id"]).single().execute().data
         if not existing:
             raise HTTPException(status_code=404, detail="Entry not found")
         
@@ -575,6 +642,17 @@ async def update_entry(
         if not update_data:
             raise HTTPException(status_code=400, detail="No fields to update")
         
+        target_content = update_data.get("content", existing.get("content") or "")
+        target_datetime = normalize_entry_datetime(update_data["date"]) if "date" in update_data else parse_entry_datetime(existing.get("date"))
+        duplicate_entry = find_duplicate_entry(
+            current_user["id"],
+            target_content,
+            target_datetime,
+            exclude_entry_id=entry_id,
+        )
+        if duplicate_entry:
+            raise HTTPException(status_code=409, detail="A matching entry already exists for this date")
+
         payload = {}
         if "content" in update_data:
             analysis = analyze_journal_entry(update_data["content"])
@@ -590,8 +668,8 @@ async def update_entry(
                 "word_count": word_count,
             })
         for field, value in update_data.items():
-            payload[field] = value
-        payload["updated_at"] = datetime.utcnow().isoformat()
+            payload[field] = normalize_entry_datetime(value).isoformat() if isinstance(value, datetime) else value
+        payload["updated_at"] = utc_now().isoformat()
         resp = supabase_db.table("journal_entries").update(payload).eq("id", entry_id).eq("user_id", current_user["id"]).select("*").single().execute()
         return resp.data
         
