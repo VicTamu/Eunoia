@@ -251,6 +251,17 @@ class PaginatedResponse(BaseModel):
     has_next: bool
     has_prev: bool
 
+class FeedbackCreate(BaseModel):
+    message: str = Field(..., min_length=1, max_length=4000, description="Feedback message")
+    rating: Optional[int] = Field(None, ge=1, le=5, description="Optional 1-5 rating")
+    page: Optional[str] = Field(None, max_length=50, description="Where the feedback was given")
+
+    @validator('message')
+    def validate_message(cls, v):
+        if not v or not v.strip():
+            raise ValueError('Feedback cannot be empty')
+        return v.strip()
+
 # FastAPI app
 app = FastAPI(title="Eunoia Journal API", version="1.0.0")
 
@@ -1163,6 +1174,44 @@ async def update_user_profile(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update profile: {str(e)}"
         )
+
+@app.post("/feedback", status_code=status.HTTP_201_CREATED)
+async def submit_feedback(
+    feedback: FeedbackCreate,
+    current_user: Dict[str, Any] = Depends(get_current_user_dependency)
+):
+    """
+    Submit product feedback.
+
+    - **message**: The feedback text (required)
+    - **rating**: Optional 1-5 rating
+    - **page**: Optional context for where the feedback was given
+
+    Stored privately for the Eunoia team to review. Requires authentication.
+    """
+    context = error_handler.create_error_context(
+        user_id=current_user.get("id"),
+        endpoint="submit_feedback"
+    )
+
+    try:
+        payload = {
+            "user_id": current_user["id"],
+            "email": current_user.get("email"),
+            "message": feedback.message,
+            "rating": feedback.rating,
+            "page": feedback.page,
+        }
+        supabase_db.table("feedback").insert(payload).execute()
+        return {"status": "received"}
+    except Exception as e:
+        error = error_factory.database_error(
+            message="Failed to save feedback",
+            detail=str(e),
+            context=context,
+            original_exception=e
+        )
+        raise error_handler.create_http_exception(error, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @app.get("/health")
 async def health_check():
