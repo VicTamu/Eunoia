@@ -1,14 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings, LogOut, ChevronDown, Edit3, SlidersHorizontal } from 'lucide-react';
+import {
+  Settings,
+  LogOut,
+  ChevronDown,
+  Edit3,
+  MessageCircle,
+  SlidersHorizontal,
+} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import PreferencesModal from './PreferencesModal';
 import ProfileManager from './ProfileManager';
 
 interface ProfileDropdownProps {
   onSignOut: () => void;
+  onOpenFeedback: () => void;
 }
 
-const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut }) => {
+const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut, onOpenFeedback }) => {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [showPreferences, setShowPreferences] = useState(false);
@@ -42,6 +50,11 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut }) => {
   const handleEditProfile = () => {
     setIsOpen(false);
     setShowProfileManager(true);
+  };
+
+  const handleFeedback = () => {
+    setIsOpen(false);
+    onOpenFeedback();
   };
 
   const getDisplayName = () => {
@@ -112,6 +125,10 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut }) => {
               </button>
             </div>
             <div className="profile-panel-footer">
+              <button onClick={handleFeedback} className="profile-feedback-action">
+                <MessageCircle className="h-4 w-4" />
+                Share feedback
+              </button>
               <button onClick={handleSignOut} className="profile-signout">
                 <LogOut className="h-4 w-4" />
                 Sign out of this device

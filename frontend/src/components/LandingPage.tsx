@@ -1,19 +1,29 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ArrowDown,
+  ArrowRight,
   Brain,
+  Home,
   Leaf,
   Lock,
-  LogIn,
+  PenLine,
   ShieldCheck,
   Sparkles,
   TrendingUp,
 } from 'lucide-react';
 import AmbientBackground from './AmbientBackground';
+import {
+  analyzeDemoEntry,
+  DEMO_EXAMPLE_QUOTE,
+  DEMO_EXAMPLE_RESULT,
+  DemoAnalysis,
+} from '../utils/demoAnalysis';
 
 export type LandingPageProps = {
   onSignIn: () => void;
   onSignUp: () => void;
+  authed?: boolean;
+  onBack?: () => void;
 };
 
 const faqItems = [
@@ -52,17 +62,27 @@ const processSteps = [
   },
 ];
 
-export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
-  const [promptValue, setPromptValue] = useState('');
-  const [activePromptDemo, setActivePromptDemo] = useState<string | null>(null);
+export default function LandingPage({
+  onSignIn,
+  onSignUp,
+  authed = false,
+  onBack,
+}: LandingPageProps) {
+  const backToJournal = onBack ?? (() => undefined);
+  const [demoText, setDemoText] = useState('');
+  const [demoResult, setDemoResult] = useState<DemoAnalysis | null>(null);
 
-  const promptNudge = useMemo(() => {
-    if (!promptValue.trim()) {
-      return "That's yours to keep. Create a free space to hold it.";
+  const hasOwnReading = demoResult !== null;
+  const activeResult = demoResult ?? DEMO_EXAMPLE_RESULT;
+  const shownQuote = hasOwnReading ? demoText.trim() : DEMO_EXAMPLE_QUOTE;
+
+  const runDemo = () => {
+    const trimmed = demoText.trim();
+    if (!trimmed) {
+      return;
     }
-
-    return "That's a meaningful place to start. Create a free space to keep going.";
-  }, [promptValue]);
+    setDemoResult(analyzeDemoEntry(trimmed));
+  };
 
   useEffect(() => {
     const elements = Array.from(document.querySelectorAll<HTMLElement>('[data-reveal]'));
@@ -92,50 +112,6 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
       .getElementById('landing-how-it-works')
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
-
-  const renderPromptCard = (idSuffix: string, compact = false) => (
-    <div className={`landing-prompt-card ${compact ? 'landing-prompt-card-compact' : ''}`}>
-      <label className="sr-only" htmlFor={`landing-try-prompt-${idSuffix}`}>
-        What has stayed with you today?
-      </label>
-      <textarea
-        id={`landing-try-prompt-${idSuffix}`}
-        className="landing-prompt-textarea"
-        value={promptValue}
-        onChange={(event) => setPromptValue(event.target.value)}
-        onFocus={() => setActivePromptDemo(null)}
-        onKeyDown={(event) => {
-          if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-            event.preventDefault();
-            setActivePromptDemo(idSuffix);
-          }
-        }}
-        placeholder="Write a word, a sentence, or the first thing that keeps returning."
-        rows={compact ? 3 : 5}
-      />
-      <div className="landing-prompt-actions">
-        <button
-          type="button"
-          className="landing-cta-primary"
-          onClick={() => setActivePromptDemo(idSuffix)}
-        >
-          Save this entry
-        </button>
-        <p className="landing-prompt-hint">Press save or just pause here for a moment.</p>
-      </div>
-      {activePromptDemo === idSuffix ? (
-        <button
-          type="button"
-          className="landing-prompt-nudge"
-          onClick={onSignUp}
-          aria-live="polite"
-        >
-          <span>{promptNudge}</span>
-          <ArrowDown className="h-4 w-4" strokeWidth={2} aria-hidden />
-        </button>
-      ) : null}
-    </div>
-  );
 
   return (
     <div className="landing-shell" aria-label="Eunoia welcome">
@@ -168,55 +144,121 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
 
               <div className="landing-cta-block">
                 <div className="landing-cta-row">
-                  <button type="button" className="landing-cta-primary" onClick={onSignIn}>
-                    <LogIn className="h-5 w-5" strokeWidth={2} aria-hidden />
-                    Sign in
-                  </button>
+                  {authed ? (
+                    <button type="button" className="landing-cta-primary" onClick={backToJournal}>
+                      <Home className="h-5 w-5" strokeWidth={2} aria-hidden />
+                      Back to your journal
+                    </button>
+                  ) : (
+                    <button type="button" className="landing-cta-primary" onClick={onSignUp}>
+                      <PenLine className="h-5 w-5" strokeWidth={2} aria-hidden />
+                      Start writing, free
+                    </button>
+                  )}
                   <button type="button" className="landing-cta-secondary" onClick={handleExplore}>
                     See how it works
                     <ArrowDown className="h-4 w-4" strokeWidth={2} aria-hidden />
                   </button>
                 </div>
-                <p className="landing-cta-foot">
-                  <span className="landing-cta-foot-muted">New here?</span>{' '}
-                  <button type="button" className="landing-cta-foot-link" onClick={onSignUp}>
-                    Create an account
-                  </button>
-                </p>
+                {authed ? null : (
+                  <>
+                    <ul className="landing-trust-row" aria-label="What to expect">
+                      <li>Free to start</li>
+                      <li>Private by design</li>
+                      <li>No feed, no audience</li>
+                    </ul>
+                    <p className="landing-cta-foot">
+                      <span className="landing-cta-foot-muted">Already have a space?</span>{' '}
+                      <button type="button" className="landing-cta-foot-link" onClick={onSignIn}>
+                        Sign in
+                      </button>
+                    </p>
+                  </>
+                )}
               </div>
             </section>
 
-            <section
-              className="landing-reflection-preview"
-              aria-label="Eunoia reflection preview"
-              data-reveal
-            >
+            <section className="landing-reflection-preview" aria-label="Try Eunoia" data-reveal>
               <div className="reflection-preview-shell">
                 <div className="reflection-preview-header">
                   <div>
-                    <span className="reflection-preview-kicker">A live snapshot</span>
-                    <h2>Writing, then noticing what it meant.</h2>
+                    <span className="reflection-preview-kicker">Try it now</span>
+                    <h2>Write a line. See what Eunoia notices.</h2>
                   </div>
                   <span className="reflection-preview-lock">
                     <Lock className="h-4 w-4" aria-hidden />
                     Private
                   </span>
                 </div>
-                <div className="reflection-preview-entry">
-                  <p className="reflection-preview-journal">
-                    &ldquo;I felt stretched thin at first, but writing it down helped me notice I
-                    wasn&apos;t as lost as I sounded in my head.&rdquo;
-                  </p>
+
+                <div className="reflection-demo-field">
+                  <label className="sr-only" htmlFor="landing-demo-input">
+                    Write how today actually felt
+                  </label>
+                  <textarea
+                    id="landing-demo-input"
+                    className="reflection-demo-textarea"
+                    value={demoText}
+                    onChange={(event) => setDemoText(event.target.value)}
+                    onKeyDown={(event) => {
+                      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                        event.preventDefault();
+                        runDemo();
+                      }
+                    }}
+                    placeholder="Type how today actually felt, even a single honest sentence."
+                    rows={3}
+                  />
+                  <button
+                    type="button"
+                    className="reflection-demo-run"
+                    onClick={runDemo}
+                    disabled={!demoText.trim()}
+                  >
+                    <Sparkles className="h-4 w-4" aria-hidden />
+                    Read it back to me
+                  </button>
+                </div>
+
+                <div className="reflection-preview-entry" aria-live="polite">
+                  <span className="reflection-demo-tag">
+                    {hasOwnReading ? 'Your words' : 'Example'}
+                  </span>
+                  <p className="reflection-preview-journal">&ldquo;{shownQuote}&rdquo;</p>
                   <div className="reflection-preview-tags">
-                    <span>Relief</span>
-                    <span>Low stress</span>
-                    <span>Evening reflection</span>
+                    {activeResult.tags.map((tag) => (
+                      <span key={tag}>{tag}</span>
+                    ))}
+                  </div>
+                  <div className="reflection-demo-readout">
+                    <div className="reflection-demo-metric">
+                      <span>Mood</span>
+                      <strong>{activeResult.mood.toFixed(1)}/10</strong>
+                    </div>
+                    <div className="reflection-demo-metric">
+                      <span>Stress</span>
+                      <strong>{activeResult.stress.toFixed(1)}/10</strong>
+                    </div>
                   </div>
                 </div>
+
                 <div className="reflection-preview-insight">
                   <TrendingUp className="h-5 w-5" aria-hidden />
-                  <p>You tend to write more gently once you name what felt heavy first.</p>
+                  <p>{activeResult.insight}</p>
                 </div>
+
+                <button
+                  type="button"
+                  className="reflection-demo-cta"
+                  onClick={authed ? backToJournal : onSignUp}
+                >
+                  {authed
+                    ? 'Back to your journal'
+                    : hasOwnReading
+                      ? 'Keep this, create your free space'
+                      : 'Start your own, it’s free'}
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </button>
               </div>
             </section>
           </div>
@@ -293,13 +335,15 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
                 <Sparkles className="h-4 w-4" aria-hidden />
                 How it works
               </div>
+              <h2 className="landing-section-title">A simple rhythm you can actually return to.</h2>
+              <p className="landing-section-lede">
+                No streaks to keep up. Just a few honest minutes that quietly add up to something
+                you can read back.
+              </p>
             </div>
 
             <div className="landing-option-stack">
               <article className="landing-option-card">
-                <div className="landing-option-header">
-                  <h3>A simple rhythm you can actually return to.</h3>
-                </div>
                 <div className="landing-option-body landing-option-body-timeline">
                   <div className="landing-timeline-node">
                     <div className="landing-process-copy">
@@ -317,15 +361,6 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
                     <div className="landing-process-copy">
                       <h3>Return with more context</h3>
                       <p>{processSteps[2].copy}</p>
-                    </div>
-                  </div>
-                  <div className="landing-timeline-node landing-timeline-node-prompt">
-                    <div className="landing-process-copy">
-                      <h3>Try one sentence now</h3>
-                      <p>
-                        You do not need to know the whole shape of the day. Start with what stayed.
-                      </p>
-                      {renderPromptCard('option-3', true)}
                     </div>
                   </div>
                 </div>
@@ -375,12 +410,20 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
                 Start with one entry. Let the rest become clearer over time.
               </p>
               <div className="landing-final-cta-actions">
-                <button type="button" className="landing-cta-primary" onClick={onSignUp}>
-                  Create an account
-                </button>
-                <button type="button" className="landing-cta-secondary" onClick={onSignIn}>
-                  Already have a space?
-                </button>
+                {authed ? (
+                  <button type="button" className="landing-cta-primary" onClick={backToJournal}>
+                    Back to your journal
+                  </button>
+                ) : (
+                  <>
+                    <button type="button" className="landing-cta-primary" onClick={onSignUp}>
+                      Create an account
+                    </button>
+                    <button type="button" className="landing-cta-secondary" onClick={onSignIn}>
+                      Already have a space?
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </section>

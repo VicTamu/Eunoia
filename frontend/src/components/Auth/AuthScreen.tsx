@@ -242,9 +242,16 @@ export default function AuthScreen({
               ) : null}
               {mode === 'signup' ? <h2 className="auth-card-title">Create your account</h2> : null}
               {mode === 'signup' ? (
-                <p className="auth-card-lead">
-                  Start your journaling rhythm. It takes less than a minute.
-                </p>
+                <>
+                  <p className="auth-card-lead">
+                    Start your journaling rhythm. It takes less than a minute.
+                  </p>
+                  <ul className="auth-trust-row" aria-label="What to expect">
+                    <li>Free to start</li>
+                    <li>Private by design</li>
+                    <li>No feed, no audience</li>
+                  </ul>
+                </>
               ) : null}
             </header>
           )}

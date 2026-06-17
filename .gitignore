@@ -233,3 +233,6 @@ $RECYCLE.BIN/
 *.backup
 *.bak
 *.tmp
+
+# Claude Code local tooling/settings
+.claude/

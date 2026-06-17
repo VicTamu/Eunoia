@@ -19,65 +19,38 @@ const api = axios.create({
   timeout: 10000,
 });
 
-// Basic diagnostics to help debug blank-page issues
-// Log base URL once at startup
-// eslint-disable-next-line no-console
-console.log('[journalApi] Base URL:', API_BASE_URL);
-
 api.interceptors.request.use(async (config) => {
-  // Get the current session and add auth header
+  // Attach the current Supabase access token, refreshing it proactively if it
+  // is close to expiring so requests don't fail mid-flight.
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  // eslint-disable-next-line no-console
-  console.log('[journalApi] Session:', session ? 'Found' : 'Not found');
-  // eslint-disable-next-line no-console
-  console.log('[journalApi] Access token:', session?.access_token ? 'Present' : 'Missing');
 
   if (session?.access_token) {
-    // Check if token is close to expiration (within 5 minutes)
     const now = Math.floor(Date.now() / 1000);
     const expiresAt = session.expires_at ? Math.floor(session.expires_at) : 0;
     const timeUntilExpiry = expiresAt - now;
 
+    // Refresh when the token expires within the next 5 minutes.
     if (timeUntilExpiry < 300 && timeUntilExpiry > 0) {
-      // 5 minutes = 300 seconds
-      // eslint-disable-next-line no-console
-      console.log('[journalApi] Token expiring soon, refreshing proactively...');
       try {
         const {
           data: { session: refreshedSession },
           error: refreshError,
         } = await supabase.auth.refreshSession();
-        if (!refreshError && refreshedSession?.access_token) {
-          // eslint-disable-next-line no-console
-          console.log('[journalApi] Token refreshed proactively');
-          config.headers.Authorization = `Bearer ${refreshedSession.access_token}`;
-        } else {
-          // eslint-disable-next-line no-console
-          console.log('[journalApi] Proactive refresh failed, using current token');
-          config.headers.Authorization = `Bearer ${session.access_token}`;
-        }
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.log('[journalApi] Proactive refresh error, using current token:', error);
+        const activeToken =
+          !refreshError && refreshedSession?.access_token
+            ? refreshedSession.access_token
+            : session.access_token;
+        config.headers.Authorization = `Bearer ${activeToken}`;
+      } catch {
         config.headers.Authorization = `Bearer ${session.access_token}`;
       }
     } else {
       config.headers.Authorization = `Bearer ${session.access_token}`;
     }
-    // eslint-disable-next-line no-console
-    // eslint-disable-next-line no-console
-    console.log('[journalApi] Added auth header');
-  } else {
-    // eslint-disable-next-line no-console
-    // eslint-disable-next-line no-console
-    console.log('[journalApi] No auth header added - user not authenticated');
   }
 
-  // eslint-disable-next-line no-console
-  // eslint-disable-next-line no-console
-  console.log('[journalApi] →', config.method?.toUpperCase(), config.url);
   return config;
 });
 
@@ -86,71 +59,39 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // If token expired (401) and we haven't already tried to refresh
+    // On a 401, attempt a single token refresh and retry the original request.
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
-        // eslint-disable-next-line no-console
-        console.log('[journalApi] Token expired, attempting refresh...');
-
-        // Try to refresh the session
         const {
           data: { session },
           error: refreshError,
         } = await supabase.auth.refreshSession();
 
-        if (refreshError) {
-          // eslint-disable-next-line no-console
-          console.log('[journalApi] Token refresh failed:', refreshError.message);
-          // Clear all auth data and redirect to login
-          await supabase.auth.signOut();
-          localStorage.clear();
-          sessionStorage.clear();
-          window.location.href = '/';
-          return Promise.reject(error);
-        }
-
-        if (session?.access_token) {
-          // Update the authorization header with new token
+        if (!refreshError && session?.access_token) {
           originalRequest.headers.Authorization = `Bearer ${session.access_token}`;
-          // eslint-disable-next-line no-console
-          console.log('[journalApi] Token refreshed successfully, retrying request');
-
-          // Retry the original request with new token
           return api(originalRequest);
-        } else {
-          // eslint-disable-next-line no-console
-          console.log('[journalApi] No access token in refresh response');
-          // Clear auth data and redirect
-          await supabase.auth.signOut();
-          localStorage.clear();
-          sessionStorage.clear();
-          window.location.href = '/';
-          return Promise.reject(error);
         }
-      } catch (refreshError) {
-        // eslint-disable-next-line no-console
-        console.log('[journalApi] Token refresh error:', refreshError);
-        // Clear auth data and redirect to login
-        await supabase.auth.signOut();
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.href = '/';
-        return Promise.reject(error);
+      } catch {
+        // Fall through to the sign-out cleanup below.
       }
+
+      // Refresh failed: clear stale auth state and return to the landing page.
+      await supabase.auth.signOut();
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = '/';
+      return Promise.reject(error);
     }
 
-    // Convert axios error to standardized error
+    // Convert axios errors into the app's standardized error shape and log them.
     const standardError = createApiError(error, {
       component: 'api',
       action: error.config?.method?.toUpperCase() + ' ' + error.config?.url,
     });
-
-    // Log the error
     errorHandler.logError(standardError);
 
-    // Re-throw the standardized error
     throw standardError;
   },
 );
@@ -162,11 +103,18 @@ const routes = {
   createEntry: () => '/entries/',
   sentimentTrends: (days: number) => `/analytics/sentiment-trends?days=${days}`,
   insights: () => '/analytics/insights',
+  feedback: () => '/feedback',
 };
 
 interface PaginatedEntriesResponse {
   entries?: JournalEntry[];
   has_next?: boolean;
+}
+
+export interface FeedbackInput {
+  message: string;
+  rating?: number | null;
+  page?: string;
 }
 
 export const journalApi = {
@@ -224,6 +172,11 @@ export const journalApi = {
   getInsights: async (): Promise<Insight> => {
     const { data } = await api.get(routes.insights());
     return data as Insight;
+  },
+
+  // Submit product feedback
+  submitFeedback: async (input: FeedbackInput): Promise<void> => {
+    await api.post(routes.feedback(), input);
   },
 };
 

@@ -1,9 +1,21 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { BarChart3, BookOpen, Brain, Clock, Home, PenSquare, Sparkles, Sun, X } from 'lucide-react';
+import {
+  BarChart3,
+  BookOpen,
+  Brain,
+  Clock,
+  Home,
+  Leaf,
+  PenSquare,
+  Sparkles,
+  Sun,
+  X,
+} from 'lucide-react';
 import JournalEntry from './components/JournalEntry';
 import Dashboard from './components/Dashboard';
 import RecentEntries from './components/RecentEntries';
 import ProfileDropdown from './components/Profile/ProfileDropdown';
+import FeedbackModal from './components/Profile/FeedbackModal';
 import { JournalEntry as JournalEntryType } from './types';
 import { useAuth } from './contexts/AuthContext';
 import AmbientBackground from './components/AmbientBackground';
@@ -28,6 +40,8 @@ function App() {
   const [signUpEmailSent, setSignUpEmailSent] = useState(false);
   const [pendingSignupEmail, setPendingSignupEmail] = useState('');
   const [showWelcome, setShowWelcome] = useState(false);
+  const [viewLanding, setViewLanding] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   useEffect(() => {
     if (authMode === 'login') {
@@ -204,6 +218,17 @@ function App() {
     );
   }
 
+  if (viewLanding) {
+    return (
+      <LandingPage
+        authed
+        onBack={() => setViewLanding(false)}
+        onSignIn={() => setViewLanding(false)}
+        onSignUp={() => setViewLanding(false)}
+      />
+    );
+  }
+
   return (
     <div className="app-shell">
       <AmbientBackground />
@@ -220,6 +245,17 @@ function App() {
         </section>
 
         <div className="workspace-bar">
+          <button
+            type="button"
+            className="workspace-brand"
+            onClick={() => setViewLanding(true)}
+            aria-label="Open the Eunoia welcome page"
+          >
+            <span className="workspace-brand-mark" aria-hidden>
+              <Leaf className="h-4 w-4" />
+            </span>
+            <span className="workspace-brand-text">Eunoia</span>
+          </button>
           <div className="tabs-shell workspace-nav">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -239,7 +275,10 @@ function App() {
           </div>
 
           <div className="toolbar-actions workspace-utilities">
-            <ProfileDropdown onSignOut={handleSignOut} />
+            <ProfileDropdown
+              onSignOut={handleSignOut}
+              onOpenFeedback={() => setShowFeedback(true)}
+            />
           </div>
         </div>
 
@@ -340,8 +379,19 @@ function App() {
               This is a prototype application. Please do not share sensitive personal information.
               AI analysis is supportive context, not medical advice.
             </p>
+            <button
+              type="button"
+              className="footer-feedback-link"
+              onClick={() => setShowFeedback(true)}
+            >
+              Share feedback
+            </button>
           </div>
         </footer>
+
+        {showFeedback ? (
+          <FeedbackModal page={activeTab} onClose={() => setShowFeedback(false)} />
+        ) : null}
       </div>
     </div>
   );
