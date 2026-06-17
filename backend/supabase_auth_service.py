@@ -5,6 +5,7 @@ Uses Supabase client for authentication instead of custom JWT verification
 
 import os
 import logging
+import jwt
 from typing import Optional, Dict, Any
 from supabase import create_client, Client
 from fastapi import HTTPException, status
@@ -21,7 +22,8 @@ class SupabaseAuthService:
         self.supabase_url = os.environ.get('SUPABASE_URL')
         self.supabase_service_key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY')
         self.supabase_anon_key = os.environ.get('SUPABASE_ANON_KEY')
-        
+        self.supabase_jwt_secret = os.environ.get('SUPABASE_JWT_SECRET')
+
         # Database connection for user_profiles table
         self.supabase_db_password = os.environ.get('SUPABASE_DB_PASSWORD')
         self.supabase_db_host = os.environ.get('SUPABASE_DB_HOST', 'db.wglvjoncodlrvkgleyvv.supabase.co')
@@ -37,8 +39,27 @@ class SupabaseAuthService:
         
         # Create Supabase client with service role key for backend operations
         self.supabase: Client = create_client(self.supabase_url, self.supabase_service_key)
-        
+
+        # JWKS client for projects using asymmetric JWT signing keys (ES256/RS256).
+        # Only used when no symmetric JWT secret is configured.
+        self.jwks_client = None
+        if not self.supabase_jwt_secret and self.supabase_url:
+            try:
+                jwks_url = f"{self.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+                self.jwks_client = jwt.PyJWKClient(jwks_url)
+            except Exception as exc:
+                logger.warning(f"Could not initialize JWKS client: {exc}")
+
         logger.info("Supabase auth service initialized with user_profiles support")
+        if self.supabase_jwt_secret:
+            logger.info("Access tokens verified locally with the project JWT secret (HS256).")
+        elif self.jwks_client is not None:
+            logger.info("Access tokens verified locally via JWKS (asymmetric signing keys).")
+        else:
+            logger.warning(
+                "No JWT secret or JWKS client available; access tokens will be verified "
+                "via the Supabase auth server (slower, per-request network call)."
+            )
     
     def get_user_from_profiles_table(self, user_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -80,107 +101,150 @@ class SupabaseAuthService:
             logger.error(f"Error querying user_profiles table via Supabase: {e}")
             return None
     
+    def _verify_with_secret(self, token: str) -> Optional[Dict[str, Any]]:
+        """
+        Verify a Supabase access token locally using the project JWT secret.
+
+        Validates the signature and expiry (and the standard "authenticated"
+        audience). Returns the decoded claims, or None if the secret is not
+        configured or the token is invalid/expired.
+        """
+        if not self.supabase_jwt_secret:
+            return None
+        try:
+            return jwt.decode(
+                token,
+                self.supabase_jwt_secret,
+                algorithms=["HS256"],
+                audience="authenticated",
+            )
+        except jwt.ExpiredSignatureError:
+            logger.info("Rejected an expired access token")
+            return None
+        except jwt.InvalidTokenError as exc:
+            logger.warning(f"Rejected an invalid access token: {exc}")
+            return None
+
+    def _verify_with_jwks(self, token: str) -> Optional[Dict[str, Any]]:
+        """
+        Verify a Supabase access token locally using the project's JWKS
+        (asymmetric signing keys, ES256/RS256).
+
+        Returns the decoded claims, or None for an invalid/expired token.
+        Raises on infrastructure errors (e.g. JWKS fetch failure) so the caller
+        can fall back to server-side verification.
+        """
+        signing_key = self.jwks_client.get_signing_key_from_jwt(token)
+        try:
+            return jwt.decode(
+                token,
+                signing_key.key,
+                algorithms=["ES256", "RS256"],
+                audience="authenticated",
+            )
+        except jwt.ExpiredSignatureError:
+            logger.info("Rejected an expired access token")
+            return None
+        except jwt.InvalidTokenError as exc:
+            logger.warning(f"Rejected an invalid access token: {exc}")
+            return None
+
+    def _verify_with_supabase(self, token: str) -> Optional[Dict[str, Any]]:
+        """
+        Verify a token against the Supabase auth server.
+
+        The auth server validates the signature and expiry server-side, so a
+        returned user means the token is genuinely valid. Used when no local
+        JWT secret is configured. Returns normalized claims, or None.
+        """
+        try:
+            user_supabase = create_client(self.supabase_url, self.supabase_anon_key)
+            # set_session expects (access_token, refresh_token); we only have the access token.
+            user_supabase.auth.set_session(token, "")
+            response = user_supabase.auth.get_user()
+            if response and getattr(response, "user", None):
+                user = response.user
+                return {
+                    "sub": user.id,
+                    "email": user.email,
+                    "user_metadata": user.user_metadata or {},
+                    "app_metadata": user.app_metadata or {},
+                    "role": (user.app_metadata or {}).get("role", "authenticated"),
+                    "aud": user.aud,
+                    "exp": getattr(user, "exp", None),
+                }
+            logger.warning("Supabase auth server returned no user for the provided token")
+            return None
+        except Exception as exc:
+            logger.warning(f"Supabase auth-server token verification failed: {exc}")
+            return None
+
     def get_user_from_token(self, token: str) -> Optional[Dict[str, Any]]:
         """
-        Get user information from JWT token using Supabase's built-in verification
-        
+        Verify a Supabase access token and return the authenticated user.
+
+        The token's signature AND expiry are always verified. Verification is
+        local when possible (HS256 via the project JWT secret, or ES256/RS256 via
+        the project's JWKS), and falls back to the Supabase auth server only when
+        no local path is available. Invalid or expired tokens are always rejected.
+
         Args:
-            token (str): JWT token from Authorization header
-            
+            token (str): JWT token from the Authorization header
+
         Returns:
-            Optional[Dict]: User information if authenticated
+            Optional[Dict]: User information if the token is valid, else None
         """
-        # Debug: Log the token format
-        logger.info(f"Received token: {token[:50]}... (length: {len(token)})")
-        
-        # Check if token starts with "Bearer "
+        if not token:
+            return None
+
+        # Strip an optional "Bearer " prefix.
         if token.startswith("Bearer "):
-            token = token[7:]  # Remove "Bearer " prefix
-            logger.info(f"Removed Bearer prefix, token now: {token[:50]}...")
-        
-        try:
-            # Create a temporary Supabase client with the anon key
-            # This is needed for user token verification
-            user_supabase = create_client(self.supabase_url, self.supabase_anon_key)
-            
-            # Set the session with the user's token
-            # The set_session method expects (access_token, refresh_token)
-            user_supabase.auth.set_session(token, "")
-            
-            # Get user information
-            response = user_supabase.auth.get_user()
-            logger.info(f"Supabase response: {response}")
-            
-            if response and hasattr(response, 'user') and response.user:
-                logger.info(f"User authenticated: {response.user.id}")
-                return {
-                    "id": response.user.id,
-                    "sub": response.user.id,
-                    "email": response.user.email,
-                    "user_metadata": response.user.user_metadata or {},
-                    "app_metadata": response.user.app_metadata or {},
-                    "role": response.user.app_metadata.get('role', 'authenticated'),
-                    "aud": response.user.aud,
-                    "exp": response.user.exp,
-                }
-            else:
-                logger.warning(f"No user found in response: {response}")
-                # Force fallback to JWT decode
-                raise Exception("Supabase returned None response, falling back to JWT decode")
-                
-        except Exception as e:
-            logger.error(f"Token verification failed: {e}")
-            # Let's try a different approach - decode the JWT manually
+            token = token[7:]
+
+        # Verify the token. Each local path is authoritative: a None result means
+        # the token is genuinely invalid/expired and must be rejected. Only fall
+        # back to server-side verification when no local path could run (or an
+        # infrastructure error prevented it).
+        claims = None
+        verified_locally = False
+
+        if self.supabase_jwt_secret:
+            claims = self._verify_with_secret(token)
+            verified_locally = True
+        elif self.jwks_client is not None:
             try:
-                import jwt
-                from datetime import datetime
-                
-                logger.info("Falling back to JWT decode method...")
-                # Decode the JWT without verification to get the payload
-                payload = jwt.decode(token, options={"verify_signature": False})
-                logger.info(f"JWT payload decoded successfully: {payload}")
-                
-                # Check if token is expired
-                exp = payload.get('exp')
-                if exp and datetime.utcnow().timestamp() > exp:
-                    logger.warning(f"Token has expired (exp: {exp}, now: {datetime.utcnow().timestamp()})")
-                    # For now, let's still allow expired tokens for testing
-                    # In production, you might want to return None here
-                    logger.info("Allowing expired token for testing purposes")
-                
-                # Extract user information from payload
-                user_id = payload.get('sub')
-                if not user_id:
-                    logger.error("No user ID in token")
-                    return None
-                
-                logger.info(f"User authenticated via JWT decode: {user_id}")
-                
-                # Try to get user info from user_profiles table
-                logger.info(f"Querying user_profiles table for user_id: {user_id}")
-                user_info = self.get_user_from_profiles_table(user_id)
-                if user_info:
-                    # Add JWT expiration info
-                    user_info["exp"] = payload.get('exp')
-                    logger.info(f"Successfully retrieved user from profiles table: {user_info.get('email')}")
-                    return user_info
-                else:
-                    # Fallback to JWT payload if not found in profiles table
-                    logger.warning("User not found in profiles table, using JWT payload")
-                    return {
-                        "id": user_id,
-                        "sub": user_id,
-                        "email": payload.get('email'),
-                        "user_metadata": payload.get('user_metadata', {}),
-                        "app_metadata": payload.get('app_metadata', {}),
-                        "role": payload.get('role', 'authenticated'),
-                        "aud": payload.get('aud'),
-                        "exp": payload.get('exp'),
-                    }
-                
-            except Exception as jwt_error:
-                logger.error(f"JWT decode also failed: {jwt_error}")
-                return None
+                claims = self._verify_with_jwks(token)
+                verified_locally = True
+            except Exception as exc:
+                logger.warning(f"JWKS verification unavailable, falling back to auth server: {exc}")
+
+        if not verified_locally:
+            claims = self._verify_with_supabase(token)
+
+        if not claims:
+            return None
+
+        user_id = claims.get("sub")
+        if not user_id:
+            logger.warning("Verified token is missing a subject (sub) claim")
+            return None
+
+        # Enrich with profile data when available; fall back to verified claims.
+        user_info = self.get_user_from_profiles_table(user_id)
+        if user_info:
+            user_info["exp"] = claims.get("exp")
+            return user_info
+
+        return {
+            "id": user_id,
+            "sub": user_id,
+            "email": claims.get("email"),
+            "user_metadata": claims.get("user_metadata", {}),
+            "app_metadata": claims.get("app_metadata", {}),
+            "role": claims.get("role", "authenticated"),
+            "aud": claims.get("aud"),
+            "exp": claims.get("exp"),
+        }
     
     def require_auth(self, token: str) -> Dict[str, Any]:
         """
