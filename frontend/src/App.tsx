@@ -22,6 +22,7 @@ import AmbientBackground from './components/AmbientBackground';
 import AuthScreen from './components/Auth/AuthScreen';
 import LandingPage from './components/LandingPage';
 import { journalApi } from './services/api';
+import { trackEvent, trackPageView } from './utils/analytics';
 import './App.css';
 
 type TabType = 'write' | 'dashboard' | 'entries';
@@ -98,6 +99,7 @@ function App() {
 
   const startWritingFromWelcome = () => {
     dismissWelcome();
+    trackEvent('onboarding_start_writing_clicked');
     setActiveTab('write');
   };
 
@@ -161,6 +163,28 @@ function App() {
           };
   const HeroSignalIcon =
     activeTab === 'write' ? Sun : activeTab === 'dashboard' ? BarChart3 : Clock;
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    if (isPasswordRecovery) {
+      trackPageView('/auth/recovery', 'Password Recovery');
+      return;
+    }
+
+    if (!user) {
+      if (guestView === 'landing') {
+        trackPageView('/', 'Landing');
+      } else {
+        trackPageView(`/auth/${authMode}`, authMode === 'signup' ? 'Sign Up' : 'Sign In');
+      }
+      return;
+    }
+
+    trackPageView(`/app/${activeTab}`, `App ${activeTab}`);
+  }, [activeTab, authMode, guestView, isPasswordRecovery, loading, user]);
 
   if (loading) {
     return (
@@ -264,7 +288,12 @@ function App() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    if (activeTab !== tab.id) {
+                      trackEvent('tab_changed', { tab: tab.id });
+                    }
+                    setActiveTab(tab.id);
+                  }}
                   className={`tab-pill ${isActive ? 'tab-pill-active' : ''}`}
                 >
                   <Icon className="h-4 w-4" />
@@ -291,8 +320,14 @@ function App() {
               entries={entries}
               loading={entriesLoading}
               error={entriesError}
-              onRetry={loadEntries}
-              onStartWriting={() => setActiveTab('write')}
+              onRetry={() => {
+                trackEvent('dashboard_retry_clicked');
+                void loadEntries();
+              }}
+              onStartWriting={() => {
+                trackEvent('dashboard_start_writing_clicked');
+                setActiveTab('write');
+              }}
             />
           )}
           {activeTab === 'entries' && (
@@ -300,8 +335,14 @@ function App() {
               entries={entries}
               loading={entriesLoading}
               error={entriesError}
-              onRetry={loadEntries}
-              onStartWriting={() => setActiveTab('write')}
+              onRetry={() => {
+                trackEvent('entries_retry_clicked');
+                void loadEntries();
+              }}
+              onStartWriting={() => {
+                trackEvent('entries_start_writing_clicked');
+                setActiveTab('write');
+              }}
             />
           )}
         </main>
@@ -317,7 +358,10 @@ function App() {
               <button
                 type="button"
                 className="onboarding-close"
-                onClick={dismissWelcome}
+                onClick={() => {
+                  trackEvent('onboarding_dismissed', { method: 'close_button' });
+                  dismissWelcome();
+                }}
                 aria-label="Dismiss welcome"
               >
                 <X className="h-4 w-4" />
@@ -361,7 +405,14 @@ function App() {
                   <PenSquare className="h-4 w-4" />
                   Write your first entry
                 </button>
-                <button type="button" className="onboarding-secondary" onClick={dismissWelcome}>
+                <button
+                  type="button"
+                  className="onboarding-secondary"
+                  onClick={() => {
+                    trackEvent('onboarding_dismissed', { method: 'maybe_later' });
+                    dismissWelcome();
+                  }}
+                >
                   Maybe later
                 </button>
               </div>

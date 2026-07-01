@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Lock, Mail } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { friendlyAuthError } from '../../utils/authErrorMessages';
+import { trackEvent } from '../../utils/analytics';
 import AuthTextField from './AuthTextField';
 
 interface LoginFormProps {
@@ -32,11 +33,16 @@ const LoginForm: React.FC<LoginFormProps> = ({ onToggleMode }) => {
     setResetNotice('');
 
     try {
+      trackEvent('login_submitted');
       const { error: signInError } = await signIn(email, password);
       if (signInError) {
+        trackEvent('login_failed');
         setError(friendlyAuthError(signInError));
+      } else {
+        trackEvent('login', { method: 'email' });
       }
     } catch {
+      trackEvent('login_failed');
       setError(friendlyAuthError(new Error('An unexpected error occurred')));
     } finally {
       setLoading(false);
@@ -49,16 +55,20 @@ const LoginForm: React.FC<LoginFormProps> = ({ onToggleMode }) => {
 
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
+      trackEvent('password_reset_blocked', { reason: 'missing_email' });
       setError(RESET_LINK_HELP);
       return;
     }
 
     setResetLoading(true);
     try {
+      trackEvent('password_reset_requested');
       const { error: resetError } = await resetPasswordForEmail(trimmedEmail);
       if (resetError) {
+        trackEvent('password_reset_failed');
         setError(friendlyAuthError(resetError));
       } else {
+        trackEvent('password_reset_email_sent');
         setResetNotice(RESET_LINK_NOTICE);
       }
     } finally {
@@ -126,7 +136,14 @@ const LoginForm: React.FC<LoginFormProps> = ({ onToggleMode }) => {
       <div className="auth-switch">
         <p>
           Don&apos;t have an account?{' '}
-          <button type="button" className="auth-switch-link" onClick={onToggleMode}>
+          <button
+            type="button"
+            className="auth-switch-link"
+            onClick={() => {
+              trackEvent('auth_mode_switched', { mode: 'signup' });
+              onToggleMode();
+            }}
+          >
             Create one
           </button>
         </p>

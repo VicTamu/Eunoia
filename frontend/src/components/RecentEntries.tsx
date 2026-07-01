@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { AlertCircle, BookOpen, Brain, Heart, PenSquare, Search, Sparkles, X } from 'lucide-react';
 import { JournalEntry } from '../types';
+import { trackEvent } from '../utils/analytics';
 
 interface RecentEntriesProps {
   entries: JournalEntry[];
@@ -108,6 +109,8 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({
   }, [entries, emotionFilter, searchQuery]);
 
   const toggleExpanded = (entryId: number) => {
+    const isExpanding = !expandedEntries.includes(entryId);
+    trackEvent('entry_expanded_toggled', { expanded: isExpanding });
     setExpandedEntries((current) =>
       current.includes(entryId) ? current.filter((id) => id !== entryId) : [...current, entryId],
     );
@@ -188,7 +191,12 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({
           <input
             type="text"
             value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
+            onChange={(event) => {
+              if (!searchQuery && event.target.value) {
+                trackEvent('entries_search_started');
+              }
+              setSearchQuery(event.target.value);
+            }}
             placeholder="Search entries or feelings"
             className="entries-search-input"
           />
@@ -196,7 +204,10 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({
             <button
               type="button"
               className="entries-search-clear"
-              onClick={() => setSearchQuery('')}
+              onClick={() => {
+                trackEvent('entries_search_cleared');
+                setSearchQuery('');
+              }}
               aria-label="Clear entry search"
             >
               <X className="h-4 w-4" />
@@ -206,7 +217,10 @@ const RecentEntries: React.FC<RecentEntriesProps> = ({
 
         <select
           value={emotionFilter}
-          onChange={(event) => setEmotionFilter(event.target.value)}
+          onChange={(event) => {
+            trackEvent('entries_filter_changed', { filter_active: event.target.value !== 'all' });
+            setEmotionFilter(event.target.value);
+          }}
           className="entries-filter-select"
         >
           <option value="all">All emotions</option>

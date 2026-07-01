@@ -10,6 +10,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import PreferencesModal from './PreferencesModal';
 import ProfileManager from './ProfileManager';
+import { trackEvent } from '../../utils/analytics';
 
 interface ProfileDropdownProps {
   onSignOut: () => void;
@@ -39,16 +40,19 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut, onOpenFeed
 
   const handleSignOut = () => {
     setIsOpen(false);
+    trackEvent('profile_sign_out_clicked');
     onSignOut();
   };
 
   const handlePreferences = () => {
     setIsOpen(false);
+    trackEvent('preferences_opened');
     setShowPreferences(true);
   };
 
   const handleEditProfile = () => {
     setIsOpen(false);
+    trackEvent('profile_editor_opened');
     setShowProfileManager(true);
   };
 
@@ -80,7 +84,10 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut, onOpenFeed
     <>
       <div className="profile-menu-shell" ref={dropdownRef}>
         <button
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={() => {
+            trackEvent('profile_menu_toggled', { expanded: !isOpen });
+            setIsOpen(!isOpen);
+          }}
           className={`profile-trigger ${isOpen ? 'profile-trigger-open' : ''}`}
           aria-expanded={isOpen}
           aria-haspopup="menu"

@@ -12,6 +12,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { useTheme, Theme } from '../../contexts/ThemeContext';
+import { trackEvent } from '../../utils/analytics';
 
 interface PreferencesModalProps {
   onClose: () => void;
@@ -61,6 +62,12 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ onClose }) => {
   ];
 
   const handleSave = () => {
+    trackEvent('preferences_saved', {
+      notifications_enabled: notifications,
+      analytics_enabled: analytics,
+      autosave_enabled: autoSave,
+      theme,
+    });
     localStorage.setItem('eunoia-notifications', notifications.toString());
     localStorage.setItem('eunoia-analytics', analytics.toString());
     localStorage.setItem('eunoia-autosave', autoSave.toString());
@@ -102,7 +109,10 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ onClose }) => {
                 return (
                   <button
                     key={option.value}
-                    onClick={() => setTheme(option.value)}
+                    onClick={() => {
+                      trackEvent('theme_selected', { theme: option.value });
+                      setTheme(option.value);
+                    }}
                     className={`preferences-theme-card ${
                       isActive ? 'preferences-theme-card-active' : ''
                     }`}

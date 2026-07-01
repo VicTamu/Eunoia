@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Sparkles, Save, Loader2, RefreshCw } from 'lucide-react';
 import { journalApi } from '../services/api';
 import { JournalEntry as JournalEntryType } from '../types';
+import { trackEvent } from '../utils/analytics';
 import { getEntryDateKey, getLocalDateKey } from '../utils/dateKeys';
 
 interface JournalEntryProps {
@@ -60,6 +61,7 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ entries = [], onEntrySaved 
     e.preventDefault();
 
     if (!content.trim()) {
+      trackEvent('journal_entry_save_blocked', { reason: 'empty' });
       setMessage('Please write something before saving your entry.');
       return;
     }
@@ -68,6 +70,11 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ entries = [], onEntrySaved 
     setMessage('');
 
     try {
+      trackEvent('journal_entry_save_attempted', {
+        entry_action: isEditingToday ? 'update' : 'create',
+        word_count: wordCount,
+      });
+
       const entryPayload = {
         content: content.trim(),
         date: buildEntryTimestamp(selectedDate),
@@ -78,6 +85,10 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ entries = [], onEntrySaved 
           : await journalApi.createEntry(entryPayload);
 
       onEntrySaved(entry);
+      trackEvent('journal_entry_saved', {
+        entry_action: isEditingToday ? 'update' : 'create',
+        word_count: wordCount,
+      });
       setLoadedEntryId(entry.id);
       if (selectedDate !== todayDateKey) {
         setContent('');
@@ -88,6 +99,9 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ entries = [], onEntrySaved 
       setTimeout(() => setMessage(''), 3000);
     } catch (error) {
       console.error('Error saving entry:', error);
+      trackEvent('journal_entry_save_failed', {
+        entry_action: isEditingToday ? 'update' : 'create',
+      });
       setMessage('Error saving entry. Please try again.');
     } finally {
       setIsLoading(false);
@@ -162,7 +176,10 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ entries = [], onEntrySaved 
               <button
                 type="button"
                 className="field-inline-link"
-                onClick={() => setShowDateEditor((current) => !current)}
+                onClick={() => {
+                  trackEvent('journal_date_editor_toggled', { expanded: !showDateEditor });
+                  setShowDateEditor((current) => !current);
+                }}
               >
                 {showDateEditor ? 'Hide' : 'Edit'}
               </button>
@@ -205,7 +222,10 @@ const JournalEntry: React.FC<JournalEntryProps> = ({ entries = [], onEntrySaved 
               <button
                 type="button"
                 className="journal-prompt-refresh"
-                onClick={() => setPromptIndex((current) => current + 1)}
+                onClick={() => {
+                  trackEvent('journal_prompt_refreshed');
+                  setPromptIndex((current) => current + 1);
+                }}
                 title="Refresh prompt"
                 aria-label="Refresh prompt"
                 disabled={isLoading}

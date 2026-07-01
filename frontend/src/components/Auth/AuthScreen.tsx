@@ -6,6 +6,7 @@ import PasswordRecoveryForm from './PasswordRecoveryForm';
 import SignupForm from './SignupForm';
 import { useAuth } from '../../contexts/AuthContext';
 import { friendlyAuthError } from '../../utils/authErrorMessages';
+import { trackEvent } from '../../utils/analytics';
 
 export type AuthMode = 'login' | 'signup' | 'recovery';
 
@@ -51,10 +52,13 @@ function SignupVerificationPanel({
     setSending(true);
     setResendMessage(null);
     try {
+      trackEvent('signup_confirmation_resend_requested');
       const { error } = await resendSignupEmail(email.trim());
       if (error) {
+        trackEvent('signup_confirmation_resend_failed');
         setResendMessage({ type: 'err', text: friendlyAuthError(error) });
       } else {
+        trackEvent('signup_confirmation_resend_succeeded');
         setResendMessage({
           type: 'ok',
           text: 'Another confirmation email is on its way. Check your inbox and spam folder.',
@@ -142,6 +146,7 @@ export default function AuthScreen({
         : 'Create your account to keep your journal private, steady, and ready when you need it.';
 
   const handleRecoveryComplete = async () => {
+    trackEvent('password_recovery_completed');
     clearPasswordRecovery();
     await signOut();
     onModeChange('login');

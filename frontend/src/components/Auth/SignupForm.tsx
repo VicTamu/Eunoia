@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Lock, Mail } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { friendlyAuthError } from '../../utils/authErrorMessages';
+import { trackEvent } from '../../utils/analytics';
 import AuthTextField from './AuthTextField';
 
 interface SignupFormProps {
@@ -28,12 +29,14 @@ const SignupForm: React.FC<SignupFormProps> = ({ onToggleMode, onRegistered }) =
     setError('');
 
     if (password !== confirmPassword) {
+      trackEvent('signup_blocked', { reason: 'password_mismatch' });
       setError('Passwords do not match.');
       setLoading(false);
       return;
     }
 
     if (password.length < MIN_PASSWORD_LENGTH) {
+      trackEvent('signup_blocked', { reason: 'password_too_short' });
       setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`);
       setLoading(false);
       return;
@@ -42,10 +45,13 @@ const SignupForm: React.FC<SignupFormProps> = ({ onToggleMode, onRegistered }) =
     const trimmedEmail = email.trim();
 
     try {
+      trackEvent('signup_submitted');
       const { error: signUpError } = await signUp(trimmedEmail, password);
       if (signUpError) {
+        trackEvent('signup_failed');
         setError(friendlyAuthError(signUpError));
       } else {
+        trackEvent('sign_up', { method: 'email' });
         onRegistered(trimmedEmail);
         setEmail('');
         setPassword('');
@@ -117,7 +123,14 @@ const SignupForm: React.FC<SignupFormProps> = ({ onToggleMode, onRegistered }) =
       <div className="auth-switch">
         <p>
           Already have an account?{' '}
-          <button type="button" className="auth-switch-link" onClick={onToggleMode}>
+          <button
+            type="button"
+            className="auth-switch-link"
+            onClick={() => {
+              trackEvent('auth_mode_switched', { mode: 'login' });
+              onToggleMode();
+            }}
+          >
             Sign in
           </button>
         </p>

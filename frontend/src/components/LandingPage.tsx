@@ -18,6 +18,7 @@ import {
   DEMO_EXAMPLE_RESULT,
   DemoAnalysis,
 } from '../utils/demoAnalysis';
+import { trackEvent } from '../utils/analytics';
 
 export type LandingPageProps = {
   onSignIn: () => void;
@@ -81,6 +82,7 @@ export default function LandingPage({
     if (!trimmed) {
       return;
     }
+    trackEvent('landing_demo_analyzed', { character_count: trimmed.length });
     setDemoResult(analyzeDemoEntry(trimmed));
   };
 
@@ -108,6 +110,7 @@ export default function LandingPage({
   }, []);
 
   const handleExplore = () => {
+    trackEvent('landing_explore_clicked');
     document
       .getElementById('landing-how-it-works')
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -145,12 +148,26 @@ export default function LandingPage({
               <div className="landing-cta-block">
                 <div className="landing-cta-row">
                   {authed ? (
-                    <button type="button" className="landing-cta-primary" onClick={backToJournal}>
+                    <button
+                      type="button"
+                      className="landing-cta-primary"
+                      onClick={() => {
+                        trackEvent('landing_back_to_journal_clicked', { location: 'hero' });
+                        backToJournal();
+                      }}
+                    >
                       <Home className="h-5 w-5" strokeWidth={2} aria-hidden />
                       Back to your journal
                     </button>
                   ) : (
-                    <button type="button" className="landing-cta-primary" onClick={onSignUp}>
+                    <button
+                      type="button"
+                      className="landing-cta-primary"
+                      onClick={() => {
+                        trackEvent('landing_sign_up_clicked', { location: 'hero_primary' });
+                        onSignUp();
+                      }}
+                    >
                       <PenLine className="h-5 w-5" strokeWidth={2} aria-hidden />
                       Start writing, free
                     </button>
@@ -169,7 +186,14 @@ export default function LandingPage({
                     </ul>
                     <p className="landing-cta-foot">
                       <span className="landing-cta-foot-muted">Already have a space?</span>{' '}
-                      <button type="button" className="landing-cta-foot-link" onClick={onSignIn}>
+                      <button
+                        type="button"
+                        className="landing-cta-foot-link"
+                        onClick={() => {
+                          trackEvent('landing_sign_in_clicked', { location: 'hero_foot' });
+                          onSignIn();
+                        }}
+                      >
                         Sign in
                       </button>
                     </p>
@@ -250,7 +274,20 @@ export default function LandingPage({
                 <button
                   type="button"
                   className="reflection-demo-cta"
-                  onClick={authed ? backToJournal : onSignUp}
+                  onClick={() => {
+                    trackEvent(
+                      authed ? 'landing_back_to_journal_clicked' : 'landing_sign_up_clicked',
+                      {
+                        location: 'demo_cta',
+                        has_demo_result: hasOwnReading,
+                      },
+                    );
+                    if (authed) {
+                      backToJournal();
+                    } else {
+                      onSignUp();
+                    }
+                  }}
                 >
                   {authed
                     ? 'Back to your journal'
@@ -411,15 +448,36 @@ export default function LandingPage({
               </p>
               <div className="landing-final-cta-actions">
                 {authed ? (
-                  <button type="button" className="landing-cta-primary" onClick={backToJournal}>
+                  <button
+                    type="button"
+                    className="landing-cta-primary"
+                    onClick={() => {
+                      trackEvent('landing_back_to_journal_clicked', { location: 'final_cta' });
+                      backToJournal();
+                    }}
+                  >
                     Back to your journal
                   </button>
                 ) : (
                   <>
-                    <button type="button" className="landing-cta-primary" onClick={onSignUp}>
+                    <button
+                      type="button"
+                      className="landing-cta-primary"
+                      onClick={() => {
+                        trackEvent('landing_sign_up_clicked', { location: 'final_cta' });
+                        onSignUp();
+                      }}
+                    >
                       Create an account
                     </button>
-                    <button type="button" className="landing-cta-secondary" onClick={onSignIn}>
+                    <button
+                      type="button"
+                      className="landing-cta-secondary"
+                      onClick={() => {
+                        trackEvent('landing_sign_in_clicked', { location: 'final_cta' });
+                        onSignIn();
+                      }}
+                    >
                       Already have a space?
                     </button>
                   </>
